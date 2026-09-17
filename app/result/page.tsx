@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
-type Question = {
-  id: number;
+type ReviewItem = {
+  question_id: number;
   question: string;
   option_a: string;
   option_b: string;
   option_c: string;
   option_d: string;
+  student_answer: string | null;
+  correct_answer: string;
+  is_correct: boolean;
+  explanation: string;
 };
 
 type Result = {
@@ -19,33 +23,32 @@ type Result = {
   percentage: number;
 };
 
-export default function CBTResultPage() {
+function CBTResultContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const courseId = searchParams.get("courseId");
-
+  const [courseId, setCourseId] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [review, setReview] = useState<ReviewItem[]>([]);
   const [showReview, setShowReview] = useState(false);
 
   useEffect(() => {
+    setCourseId(
+      new URLSearchParams(window.location.search).get("courseId")
+    );
+
     try {
       const savedResult = sessionStorage.getItem("cbtResult");
-      const savedQuestions = sessionStorage.getItem("cbtQuestions");
-      const savedAnswers = sessionStorage.getItem("cbtAnswers");
+      const savedReview = sessionStorage.getItem("cbtReview");
 
-      if (!savedResult || !savedQuestions) {
+      if (!savedResult) {
         router.replace("/cbt");
         return;
       }
 
       setResult(JSON.parse(savedResult));
-      setQuestions(JSON.parse(savedQuestions));
 
-      if (savedAnswers) {
-        setAnswers(JSON.parse(savedAnswers));
+      if (savedReview) {
+        setReview(JSON.parse(savedReview));
       }
     } catch (error) {
       console.error("Could not load CBT result:", error);
@@ -90,6 +93,17 @@ export default function CBTResultPage() {
     }
   }
 
+  function getOptionText(item: ReviewItem, letter: string) {
+    const options: Record<string, string> = {
+      A: item.option_a,
+      B: item.option_b,
+      C: item.option_c,
+      D: item.option_d,
+    };
+
+    return options[letter] || "";
+  }
+
   return (
     <main className="min-h-screen bg-[#FAF7F2] text-[#2B2022]">
       <header className="border-b border-[#6B2638]/10 bg-white">
@@ -98,6 +112,7 @@ export default function CBTResultPage() {
             <p className="text-sm font-bold text-[#6B2638]">
               CAMPUS LEARNING HUB
             </p>
+
             <p className="mt-1 text-xs text-[#2B2022]/50">
               CBT Result
             </p>
@@ -183,52 +198,103 @@ export default function CBTResultPage() {
             </h2>
 
             <p className="mt-2 text-sm text-[#2B2022]/55">
-              Your selected answers are shown below.
+              Review your answers, the correct answers, and the
+              explanations.
             </p>
 
-            <div className="mt-6 space-y-5">
-              {questions.map((question, index) => {
-                const selected =
-                  answers[question.id] || "Not answered";
+            {review.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-[#6B2638]/10 bg-white p-6">
+                <p className="text-[#2B2022]/60">
+                  Review information is not available for this
+                  attempt.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 space-y-5">
+                {review.map((item, index) => {
+                  const studentAnswer = item.student_answer;
+                  const correctAnswer = item.correct_answer;
 
-                const optionText: Record<string, string> = {
-                  A: question.option_a,
-                  B: question.option_b,
-                  C: question.option_c,
-                  D: question.option_d,
-                };
-
-                return (
-                  <div
-                    key={question.id}
-                    className="rounded-3xl border border-[#6B2638]/10 bg-white p-6 shadow-sm"
-                  >
-                    <p className="text-sm font-semibold text-[#C89B5D]">
-                      Question {index + 1}
-                    </p>
-
-                    <h3 className="mt-3 font-bold leading-relaxed">
-                      {question.question}
-                    </h3>
-
-                    <div className="mt-5 rounded-2xl bg-[#FAF7F2] p-4">
-                      <p className="text-xs font-semibold uppercase text-[#2B2022]/45">
-                        Your answer
+                  return (
+                    <div
+                      key={item.question_id}
+                      className="rounded-3xl border border-[#6B2638]/10 bg-white p-6 shadow-sm"
+                    >
+                      <p className="text-sm font-semibold text-[#C89B5D]">
+                        Question {index + 1}
                       </p>
 
-                      <p className="mt-2 font-medium">
-                        {selected === "Not answered"
-                          ? "Not answered"
-                          : `${selected}. ${optionText[selected] || ""}`}
-                      </p>
+                      <h3 className="mt-3 font-bold leading-relaxed">
+                        {item.question}
+                      </h3>
+
+                      <div
+                        className={`mt-5 rounded-2xl p-4 ${
+                          item.is_correct
+                            ? "bg-green-50"
+                            : "bg-red-50"
+                        }`}
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#2B2022]/45">
+                          Your answer
+                        </p>
+
+                        <p className="mt-2 font-semibold">
+                          {studentAnswer
+                            ? `${studentAnswer}. ${getOptionText(
+                                item,
+                                studentAnswer
+                              )}`
+                            : "Not answered"}
+                        </p>
+
+                        <p
+                          className={`mt-2 text-sm font-semibold ${
+                            item.is_correct
+                              ? "text-green-700"
+                              : "text-red-700"
+                          }`}
+                        >
+                          {item.is_correct
+                            ? "✓ Correct"
+                            : "✗ Incorrect"}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 rounded-2xl bg-[#FAF7F2] p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#2B2022]/45">
+                          Correct answer
+                        </p>
+
+                        <p className="mt-2 font-semibold text-[#6B2638]">
+                          {correctAnswer}.{" "}
+                          {getOptionText(item, correctAnswer)}
+                        </p>
+                      </div>
+
+                      {item.explanation && (
+                        <div className="mt-4 rounded-2xl border border-[#C89B5D]/25 bg-[#C89B5D]/5 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#C89B5D]">
+                            Explanation
+                          </p>
+
+                          <p className="mt-2 leading-relaxed text-[#2B2022]/75">
+                            {item.explanation}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         )}
       </section>
     </main>
   );
+}
+
+export default function CBTResultPage() {
+  return <CBTResultContent />;
 }

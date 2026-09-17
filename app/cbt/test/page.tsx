@@ -12,6 +12,8 @@ type Question = {
   option_b: string;
   option_c: string;
   option_d: string;
+  correct_answer: string;
+  explanation: string;
 };
 
 type Answer = {
@@ -22,418 +24,356 @@ type Answer = {
 const BACKEND_URL =
   "https://learning-made-easy-backend.vercel.app";
 
-const TEST_DURATION_SECONDS = 15 * 60s;
+const TEST_DURATION_SECONDS = 15 * 60;
 
-function CBTTestPage() {
+function CBTTestContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const courseId = searchParams.get("courseId");
 
+  const [accessCode, setAccessCode] = useState("");
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [accessVerified, setAccessVerified] = useState(false);
+
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Answer[]>([]);
+
+  const [currentQuestion, setCurrentQuestion] = useState(0);
 
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-
-  const [accessCode, setAccessCode] = useState("");
-  const [codeInput, setCodeInput] = useState("");
-
-  const [checkingCode, setCheckingCode] = useState(false);
-  const [accessGranted, setAccessGranted] = useState(false);
-
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState("");
 
   const [timeLeft, setTimeLeft] = useState(
     TEST_DURATION_SECONDS
   );
 
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
+    const storedAccessCode =
+      sessionStorage.getItem("cbtAccessCode");
+
+    if (!storedAccessCode) {
+      router.replace("/cbt");
+      return;
+    }
+
     if (!courseId) {
       router.replace("/cbt");
       return;
     }
 
-    const testCourseId = courseId;
-
-    async function initializeTest() {
-      try {
-        setLoading(true);
-        setError("");
-
-        const savedCode =
-          sessionStorage.getItem("cbtAccessCode");
-
-        if (savedCode) {
-          const verified = await verifyAccessCode(
-            savedCode,
-            testCourseId
-          );
-
-          if (verified) {
-            setAccessCode(savedCode);
-            setAccessGranted(true);
-            await loadQuestions(
-              savedCode,
-              testCourseId
-            );
-            return;
-          }
-
-          sessionStorage.removeItem("cbtAccessCode");
-        }
-
-        setLoading(false);
-      } catch (err) {
-        console.error(err);
-        setError(
-          "Unable to initialize the CBT. Please try again."
-        );
-        setLoading(false);
-      }
-    }
-
-    initializeTest();
+    setAccessCode(storedAccessCode);
+    setSelectedCourseId(courseId);
+    setLoading(false);
   }, [courseId, router]);
 
-  async function verifyAccessCode(
-    code: string,
-    selectedCourseId: string
-  ) {
-    try {
-      const response = await fetch(
-        `${BACKEND_URL}/api/cbt/access/verify`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            access_code: code.trim().toUpperCase(),
-            course: selectedCourseId,
-          }),
-        }
-      );
+  useEffect(() => {
+    if (!accessCode || !selectedCourseId) return;
 
-      const data = await response.json();
+    const verifyAccess = async () => {
+      try {
+        setError("");
 
-      if (!response.ok || !data.success) {
-        return false;
-      }
-
-      return true;
-    } catch (err) {
-      console.error(err);
-      return false;
-    }
-  }
-
-  async function loadQuestions(
-    code: string,
-    selectedCourseId: string
-  ) {
-    const response = await fetch(
-      `${BACKEND_URL}/api/cbt/questions/${selectedCourseId}?limit=50`,
-      {
-        headers: {
-          "x-cbt-access-code": code,
-        },
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(
-        data.message || "Failed to load questions"
-      );
-    }
-
-    setQuestions(data.questions || []);
-  }
-
-  async function handleAccessCodeSubmit(
-    event: React.FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
-    const cleanedCode = codeInput.trim().toUpperCase();
-
-    if (!cleanedCode) {
-      setError("Please enter your CBT access code.");
-      return;
-    }
-
-    if (!courseId) {
-      setError("Invalid course.");
-      return;
-    }
-
-    try {
-      setCheckingCode(true);
-      setError("");
-
-      const verified = await verifyAccessCode(
-        cleanedCode,
-        courseId
-      );
-
-      if (!verified) {
-        setError(
-          "Invalid or inactive access code. Please check your code and try again."
+        const response = await fetch(
+          `${BACKEND_URL}/api/cbt/access/verify`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              access_code: accessCode,
+              course: selectedCourseId,
+            }),
+          }
         );
-        return;
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.message || "CBT access verification failed."
+          );
+        }
+
+        setAccessVerified(true);
+      } catch (err) {
+        console.error(err);
+
+        sessionStorage.removeItem("cbtAccessCode");
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to verify CBT access."
+        );
+
+        setTimeout(() => {
+          router.replace("/cbt");
+        }, 2000);
       }
-
-      sessionStorage.setItem(
-        "cbtAccessCode",
-        cleanedCode
-      );
-
-      setAccessCode(cleanedCode);
-      setAccessGranted(true);
-      setLoading(true);
-
-      await loadQuestions(cleanedCode, courseId);
-
-      // Start a fresh 30-minute test session.
-      setTimeLeft(TEST_DURATION_SECONDS);
-      sessionStorage.setItem(
-        "cbtStartTime",
-        Date.now().toString()
-      );
-    } catch (err) {
-      console.error(err);
-
-      sessionStorage.removeItem("cbtAccessCode");
-      setAccessCode("");
-      setAccessGranted(false);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to start the CBT. Please try again."
-      );
-    } finally {
-      setCheckingCode(false);
-      setLoading(false);
-    }
-  }
-
-  /*
-   * Restore the timer from the browser session.
-   * This prevents the timer from restarting when the
-   * page component re-renders.
-   */
-  useEffect(() => {
-    if (!accessGranted || questions.length === 0) {
-      return;
-    }
-
-    const savedStartTime =
-      sessionStorage.getItem("cbtStartTime");
-
-    if (savedStartTime) {
-      const elapsedSeconds = Math.floor(
-        (Date.now() - Number(savedStartTime)) / 1000
-      );
-
-      const remaining = Math.max(
-        TEST_DURATION_SECONDS - elapsedSeconds,
-        0
-      );
-
-      setTimeLeft(remaining);
-    }
-
-    const timer = window.setInterval(() => {
-      const startTime =
-        sessionStorage.getItem("cbtStartTime");
-
-      if (!startTime) return;
-
-      const elapsedSeconds = Math.floor(
-        (Date.now() - Number(startTime)) / 1000
-      );
-
-      const remaining = Math.max(
-        TEST_DURATION_SECONDS - elapsedSeconds,
-        0
-      );
-
-      setTimeLeft(remaining);
-    }, 1000);
-
-    return () => {
-      window.clearInterval(timer);
     };
-  }, [accessGranted, questions.length]);
 
-  /*
-   * Automatically submit when time reaches zero.
-   */
+    verifyAccess();
+  }, [accessCode, selectedCourseId, router]);
+
   useEffect(() => {
-    if (
-      timeLeft !== 0 ||
-      !accessGranted ||
-      questions.length === 0 ||
-      submitting
-    ) {
-      return;
-    }
+    if (!accessVerified || !selectedCourseId) return;
 
-    submitTest(true);
-  }, [
-    timeLeft,
-    accessGranted,
-    questions.length,
-    submitting,
-  ]);
+    const loadQuestions = async () => {
+      try {
+        setLoadingQuestions(true);
+        setError("");
 
-  function selectAnswer(answer: string) {
-    if (!questions[currentIndex]) return;
+        const response = await fetch(
+          `${BACKEND_URL}/api/cbt/questions/${selectedCourseId}?limit=50`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "x-cbt-access-code": accessCode,
+            },
+          }
+        );
 
-    const questionId = questions[currentIndex].id;
+        const data = await response.json();
 
-    setAnswers((previous) => ({
-      ...previous,
-      [questionId]: answer,
-    }));
-  }
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.message || "Unable to load CBT questions."
+          );
+        }
 
-  function goNext() {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex((previous) => previous + 1);
-    }
-  }
+        setQuestions(data.questions || []);
 
-  function goPrevious() {
-    if (currentIndex > 0) {
-      setCurrentIndex((previous) => previous - 1);
-    }
-  }
-
-  async function submitTest(
-    autoSubmit = false
-  ) {
-    if (
-      !courseId ||
-      questions.length === 0 ||
-      !accessCode
-    ) {
-      return;
-    }
-
-    if (!autoSubmit) {
-      const confirmed = window.confirm(
-        "Are you sure you want to submit your test?"
-      );
-
-      if (!confirmed) return;
-    }
-
-    try {
-      setSubmitting(true);
-      setError("");
-
-      const formattedAnswers: Answer[] =
-        questions.map((question) => ({
+        const initialAnswers: Answer[] = (
+          data.questions || []
+        ).map((question: Question) => ({
           question_id: question.id,
-          answer: answers[question.id] || "",
+          answer: "",
         }));
 
-      const response = await fetch(
-        `${BACKEND_URL}/api/cbt/submit`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            access_code: accessCode,
-            course_id: Number(courseId),
-            answers: formattedAnswers,
-          }),
+        setAnswers(initialAnswers);
+
+        const existingStartTime =
+          sessionStorage.getItem("cbtStartTime");
+
+        if (existingStartTime) {
+          const elapsed = Math.floor(
+            (Date.now() - Number(existingStartTime)) / 1000
+          );
+
+          const remaining =
+            TEST_DURATION_SECONDS - elapsed;
+
+          setTimeLeft(Math.max(remaining, 0));
+        } else {
+          sessionStorage.setItem(
+            "cbtStartTime",
+            Date.now().toString()
+          );
+
+          setTimeLeft(TEST_DURATION_SECONDS);
         }
-      );
+      } catch (err) {
+        console.error(err);
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to submit test"
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load CBT questions."
         );
+      } finally {
+        setLoadingQuestions(false);
+      }
+    };
+
+    loadQuestions();
+  }, [accessVerified, selectedCourseId, accessCode]);
+
+  useEffect(() => {
+    if (!accessVerified || questions.length === 0) {
+      return;
+    }
+
+    if (timeLeft <= 0) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((previous) => {
+        if (previous <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+
+        return previous - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [accessVerified, questions.length, timeLeft]);
+
+  useEffect(() => {
+    if (
+      timeLeft === 0 &&
+      questions.length > 0 &&
+      !submitting
+    ) {
+      handleSubmit();
+    }
+  }, [timeLeft, questions.length, submitting]);
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    return `${minutes
+      .toString()
+      .padStart(2, "0")}:${remainingSeconds
+      .toString()
+      .padStart(2, "0")}`;
+  };
+
+  const handleAnswer = (answer: string) => {
+    if (!questions[currentQuestion]) return;
+
+    const questionId = questions[currentQuestion].id;
+
+    setAnswers((previous) =>
+      previous.map((item) =>
+        item.question_id === questionId
+          ? {
+              ...item,
+              answer,
+            }
+          : item
+      )
+    );
+  };
+
+  const getCurrentAnswer = () => {
+    if (!questions[currentQuestion]) return "";
+
+    const currentQuestionId =
+      questions[currentQuestion].id;
+
+    return (
+      answers.find(
+        (answer) =>
+          answer.question_id === currentQuestionId
+      )?.answer || ""
+    );
+  };
+
+  const handleNext = () => {
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion((previous) => previous + 1);
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestion > 0) {
+      setCurrentQuestion((previous) => previous - 1);
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const handleSubmit = () => {
+    if (submitting) return;
+
+    setSubmitting(true);
+
+    let score = 0;
+
+    const review = questions.map((question) => {
+      const studentAnswer =
+        answers.find(
+          (answer) =>
+            answer.question_id === question.id
+        )?.answer || "";
+
+      const correctAnswer =
+        question.option_a === question.correct_answer
+          ? question.option_a
+          : question.option_b === question.correct_answer
+          ? question.option_b
+          : question.option_c === question.correct_answer
+          ? question.option_c
+          : question.option_d === question.correct_answer
+          ? question.option_d
+          : question.correct_answer;
+
+      const isCorrect =
+        studentAnswer === question.correct_answer;
+
+      if (isCorrect) {
+        score++;
       }
 
-      sessionStorage.removeItem("cbtStartTime");
+      return {
+        question: question.question,
+        studentAnswer,
+        correctAnswer,
+        isCorrect,
+        explanation: question.explanation,
+      };
+    });
 
-      sessionStorage.setItem(
-        "cbtResult",
-        JSON.stringify({
-          success: data.success,
-          score: data.score,
-          total_questions: data.total_questions,
-          percentage: data.percentage,
-        })
-      );
+    const totalQuestions = questions.length;
 
-      sessionStorage.setItem(
-        "cbtQuestions",
-        JSON.stringify(questions)
-      );
+    const percentage =
+      totalQuestions > 0
+        ? Math.round((score / totalQuestions) * 100)
+        : 0;
 
-      sessionStorage.setItem(
-        "cbtAnswers",
-        JSON.stringify(answers)
-      );
+    const result = {
+      score,
+      totalQuestions,
+      percentage,
+      courseId: selectedCourseId,
+      completedAt: new Date().toISOString(),
+    };
 
-      sessionStorage.setItem(
-        "cbtReview",
-        JSON.stringify(data.review || [])
-      );
-
-      router.push(
-        `/cbt/result?courseId=${courseId}`
-      );
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong while submitting."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  /*
-   * No course selected
-   */
-  if (!courseId) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#FAF7F2] px-6">
-        <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
-          <h1 className="text-xl font-bold text-[#6B2638]">
-            Course not selected
-          </h1>
-
-          <button
-            onClick={() => router.push("/cbt")}
-            className="mt-6 rounded-xl bg-[#6B2638] px-6 py-3 font-semibold text-white"
-          >
-            Back to Courses
-          </button>
-        </div>
-      </main>
+    sessionStorage.setItem(
+      "cbtResult",
+      JSON.stringify(result)
     );
-  }
 
-  /*
-   * Loading state
-   */
+    sessionStorage.setItem(
+      "cbtQuestions",
+      JSON.stringify(questions)
+    );
+
+    sessionStorage.setItem(
+      "cbtAnswers",
+      JSON.stringify(answers)
+    );
+
+    sessionStorage.setItem(
+      "cbtReview",
+      JSON.stringify(review)
+    );
+
+    sessionStorage.removeItem("cbtStartTime");
+
+    router.push(
+      `/cbt/result?courseId=${selectedCourseId}`
+    );
+  };
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#FAF7F2]">
@@ -441,341 +381,248 @@ function CBTTestPage() {
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#6B2638]/15 border-t-[#6B2638]" />
 
           <p className="mt-4 text-[#2B2022]/60">
-            {accessGranted
-              ? "Loading your test..."
-              : "Checking your access..."}
+            Loading CBT...
           </p>
         </div>
       </main>
     );
   }
 
-  /*
-   * ACCESS CODE GATE
-   */
-  if (!accessGranted) {
-    return (
-      <main className="min-h-screen bg-[#FAF7F2] text-[#2B2022]">
-        <header className="border-b border-[#6B2638]/10 bg-white">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-            <div>
-              <p className="text-sm font-bold text-[#6B2638]">
-                CAMPUS LEARNING HUB
-              </p>
-
-              <p className="mt-1 text-xs text-[#2B2022]/50">
-                CBT Practice
-              </p>
-            </div>
-
-            <button
-              onClick={() => router.push("/cbt")}
-              className="text-sm font-medium text-[#2B2022]/60 transition hover:text-[#6B2638]"
-            >
-              ← Back to Courses
-            </button>
-          </div>
-        </header>
-
-        <section className="flex min-h-[calc(100vh-81px)] items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md">
-            <div className="rounded-3xl border border-[#6B2638]/10 bg-white p-8 shadow-sm md:p-10">
-              <div className="text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#6B2638]/8">
-                  <span className="text-xl font-bold text-[#6B2638]">
-                    CBT
-                  </span>
-                </div>
-
-                <h1 className="mt-6 text-2xl font-bold text-[#2B2022]">
-                  Enter Your Access Code
-                </h1>
-
-                <p className="mt-3 text-sm leading-6 text-[#2B2022]/60">
-                  Enter the CBT access code you received after
-                  completing your payment.
-                </p>
-              </div>
-
-              <form
-                onSubmit={handleAccessCodeSubmit}
-                className="mt-8"
-              >
-                <label
-                  htmlFor="accessCode"
-                  className="text-sm font-semibold text-[#2B2022]"
-                >
-                  CBT Access Code
-                </label>
-
-                <input
-                  id="accessCode"
-                  type="text"
-                  value={codeInput}
-                  onChange={(event) =>
-                    setCodeInput(
-                      event.target.value.toUpperCase()
-                    )
-                  }
-                  placeholder="Enter your access code"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="mt-2 w-full rounded-xl border border-[#6B2638]/15 bg-[#FAF7F2] px-4 py-3.5 font-semibold tracking-wider text-[#2B2022] outline-none transition placeholder:font-normal placeholder:tracking-normal placeholder:text-[#2B2022]/35 focus:border-[#6B2638] focus:ring-2 focus:ring-[#6B2638]/10"
-                />
-
-                {error && (
-                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm leading-6 text-red-700">
-                    {error}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={checkingCode}
-                  className="mt-5 w-full rounded-xl bg-[#6B2638] px-6 py-3.5 font-semibold text-white transition hover:bg-[#561E2D] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {checkingCode
-                    ? "Verifying Access..."
-                    : "Continue to CBT"}
-                </button>
-              </form>
-
-              <div className="mt-6 rounded-2xl bg-[#FAF7F2] p-4">
-                <p className="text-xs leading-5 text-[#2B2022]/55">
-                  Your access code is verified securely before
-                  the test begins.
-                </p>
-              </div>
-            </div>
-
-            <div className="mx-auto mt-8 h-1 w-16 rounded-full bg-[#C89B5D]" />
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  /*
-   * If access was granted but no questions were returned
-   */
-  if (error && questions.length === 0) {
+  if (error) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#FAF7F2] px-6">
-        <div className="max-w-md rounded-3xl bg-white p-8 text-center shadow-sm">
-          <h1 className="text-xl font-bold text-[#6B2638]">
-            Unable to load test
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+            !
+          </div>
+
+          <h1 className="mt-5 text-xl font-bold text-[#2B2022]">
+            Something went wrong
           </h1>
 
-          <p className="mt-3 text-[#2B2022]/60">
+          <p className="mt-3 text-sm leading-6 text-[#2B2022]/60">
             {error}
           </p>
 
-          <div className="mt-6 flex flex-col gap-3">
-            <button
-              onClick={() => {
-                sessionStorage.removeItem(
-                  "cbtAccessCode"
-                );
-                sessionStorage.removeItem(
-                  "cbtStartTime"
-                );
-
-                setAccessCode("");
-                setAccessGranted(false);
-                setQuestions([]);
-                setError("");
-              }}
-              className="rounded-xl bg-[#6B2638] px-6 py-3 font-semibold text-white"
-            >
-              Re-enter Access Code
-            </button>
-
-            <button
-              onClick={() => router.push("/cbt")}
-              className="rounded-xl border border-[#6B2638]/15 bg-white px-6 py-3 font-semibold text-[#6B2638]"
-            >
-              Back to Courses
-            </button>
-          </div>
+          <button
+            onClick={() => router.replace("/cbt")}
+            className="mt-6 rounded-xl bg-[#6B2638] px-6 py-3 font-semibold text-white transition hover:bg-[#571f2e]"
+          >
+            Back to CBT
+          </button>
         </div>
       </main>
     );
   }
 
-  const question = questions[currentIndex];
+  if (
+    !accessVerified ||
+    loadingQuestions ||
+    questions.length === 0
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#FAF7F2]">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#6B2638]/15 border-t-[#6B2638]" />
 
-  if (!question) {
-    return null;
+          <p className="mt-4 text-[#2B2022]/60">
+            Preparing your CBT...
+          </p>
+        </div>
+      </main>
+    );
   }
 
-  const selectedAnswer = answers[question.id] || "";
+  const question = questions[currentQuestion];
+  const currentAnswer = getCurrentAnswer();
 
-  const options = [
-    {
-      key: "A",
-      text: question.option_a,
-    },
-    {
-      key: "B",
-      text: question.option_b,
-    },
-    {
-      key: "C",
-      text: question.option_c,
-    },
-    {
-      key: "D",
-      text: question.option_d,
-    },
-  ];
+  const answeredCount = answers.filter(
+    (answer) => answer.answer !== ""
+  ).length;
 
-  const answeredCount = Object.keys(answers).length;
+  const progress =
+    ((currentQuestion + 1) / questions.length) * 100;
 
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-
-  const formattedTime = `${minutes
-    .toString()
-    .padStart(2, "0")}:${seconds
-    .toString()
-    .padStart(2, "0")}`;
+  const isLastQuestion =
+    currentQuestion === questions.length - 1;
 
   const timerWarning = timeLeft <= 5 * 60;
 
+  const options = [
+    {
+      letter: "A",
+      value: question.option_a,
+    },
+    {
+      letter: "B",
+      value: question.option_b,
+    },
+    {
+      letter: "C",
+      value: question.option_c,
+    },
+    {
+      letter: "D",
+      value: question.option_d,
+    },
+  ];
+
   return (
-    <main className="min-h-screen bg-[#FAF7F2] text-[#2B2022]">
-      <header className="border-b border-[#6B2638]/10 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-5">
-          <div>
-            <p className="text-sm font-bold text-[#6B2638]">
-              CAMPUS LEARNING HUB
-            </p>
+    <main className="min-h-screen bg-[#FAF7F2]">
+      <header className="sticky top-0 z-20 border-b border-[#2B2022]/10 bg-white/95 backdrop-blur">
+        <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#A65D6F]">
+                CAMPUS LEARNING HUB
+              </p>
 
-            <p className="mt-1 text-xs text-[#2B2022]/50">
-              CBT Practice
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <p className="hidden text-sm font-semibold text-[#6B2638] sm:block">
-              {answeredCount} answered
-            </p>
+              <h1 className="mt-1 text-lg font-bold text-[#2B2022] sm:text-xl">
+                CBT Examination
+              </h1>
+            </div>
 
             <div
-              className={`rounded-xl border px-4 py-2 text-sm font-bold tabular-nums ${
+              className={`rounded-xl border px-4 py-2 text-center ${
                 timerWarning
                   ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-[#C89B5D]/30 bg-[#FAF7F2] text-[#6B2638]"
+                  : "border-[#C89B5D]/30 bg-[#C89B5D]/10 text-[#6B2638]"
               }`}
             >
-              ⏱ {formattedTime}
+              <p className="text-[10px] font-semibold uppercase tracking-wider">
+                Time Left
+              </p>
+
+              <p className="text-lg font-bold tabular-nums">
+                {formatTime(timeLeft)}
+              </p>
             </div>
+          </div>
+
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#6B2638]/10">
+            <div
+              className="h-full rounded-full bg-[#6B2638] transition-all duration-300"
+              style={{
+                width: `${progress}%`,
+              }}
+            />
           </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-4xl px-6 py-8 md:py-12">
-        <div className="mb-6 flex items-center justify-between">
-          <p className="text-sm font-semibold text-[#6B2638]">
-            Question {currentIndex + 1}
-          </p>
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-[#6B2638]">
+              Question {currentQuestion + 1} of{" "}
+              {questions.length}
+            </p>
 
-          <p className="text-sm text-[#2B2022]/50">
-            {currentIndex + 1} of {questions.length}
-          </p>
+            <p className="mt-1 text-xs text-[#2B2022]/50">
+              {answeredCount} answered
+            </p>
+          </div>
+
+          <div className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#2B2022]/60 shadow-sm">
+            {Math.round(progress)}% Complete
+          </div>
         </div>
 
-        <div className="h-2 overflow-hidden rounded-full bg-[#6B2638]/10">
-          <div
-            className="h-full rounded-full bg-[#C89B5D] transition-all"
-            style={{
-              width: `${
-                ((currentIndex + 1) /
-                  questions.length) *
-                100
-              }%`,
-            }}
-          />
-        </div>
+        <section className="rounded-2xl border border-[#2B2022]/10 bg-white p-5 shadow-sm sm:p-8">
+          <div className="mb-7">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-[#A65D6F]">
+              Question {question.question_number}
+            </p>
 
-        <div className="mt-8 rounded-3xl border border-[#6B2638]/10 bg-white p-7 shadow-sm md:p-10">
-          <h1 className="text-xl font-bold leading-relaxed md:text-2xl">
-            {question.question}
-          </h1>
+            <h2 className="text-lg font-semibold leading-8 text-[#2B2022] sm:text-xl">
+              {question.question}
+            </h2>
+          </div>
 
-          <div className="mt-8 space-y-3">
+          <div className="space-y-3">
             {options.map((option) => {
               const selected =
-                selectedAnswer === option.key;
+                currentAnswer === option.value;
 
               return (
                 <button
-                  key={option.key}
+                  key={option.letter}
+                  type="button"
                   onClick={() =>
-                    selectAnswer(option.key)
+                    handleAnswer(option.value)
                   }
-                  className={`flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition ${
+                  className={`flex w-full items-start gap-4 rounded-xl border p-4 text-left transition ${
                     selected
-                      ? "border-[#6B2638] bg-[#6B2638]/5"
-                      : "border-[#6B2638]/10 bg-white hover:border-[#A65D6F]"
+                      ? "border-[#6B2638] bg-[#6B2638]/5 ring-2 ring-[#6B2638]/10"
+                      : "border-[#2B2022]/10 bg-white hover:border-[#A65D6F]/40 hover:bg-[#FAF7F2]"
                   }`}
                 >
                   <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold ${
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
                       selected
                         ? "bg-[#6B2638] text-white"
                         : "bg-[#FAF7F2] text-[#6B2638]"
                     }`}
                   >
-                    {option.key}
+                    {option.letter}
                   </span>
 
-                  <span className="pt-1 font-medium">
-                    {option.text}
+                  <span
+                    className={`pt-1 text-sm leading-6 sm:text-base ${
+                      selected
+                        ? "font-semibold text-[#2B2022]"
+                        : "text-[#2B2022]/80"
+                    }`}
+                  >
+                    {option.value}
                   </span>
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {error && (
-          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
-            onClick={goPrevious}
-            disabled={currentIndex === 0}
-            className="rounded-xl border border-[#6B2638]/15 bg-white px-6 py-3 font-semibold text-[#6B2638] disabled:cursor-not-allowed disabled:opacity-40"
+            type="button"
+            onClick={handlePrevious}
+            disabled={currentQuestion === 0}
+            className="rounded-xl border border-[#2B2022]/10 bg-white px-6 py-3 font-semibold text-[#2B2022] transition hover:bg-[#FAF7F2] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Previous
           </button>
 
-          {currentIndex === questions.length - 1 ? (
+          {!isLastQuestion ? (
             <button
-              onClick={() => submitTest()}
+              type="button"
+              onClick={handleNext}
+              className="rounded-xl bg-[#6B2638] px-7 py-3 font-semibold text-white transition hover:bg-[#571f2e]"
+            >
+              Next Question
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSubmit}
               disabled={submitting}
-              className="rounded-xl bg-[#6B2638] px-7 py-3 font-semibold text-white hover:bg-[#561E2D] disabled:opacity-60"
+              className="rounded-xl bg-[#C89B5D] px-7 py-3 font-bold text-[#2B2022] transition hover:bg-[#b88b4f] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting
                 ? "Submitting..."
                 : "Submit Test"}
             </button>
-          ) : (
-            <button
-              onClick={goNext}
-              className="rounded-xl bg-[#6B2638] px-7 py-3 font-semibold text-white hover:bg-[#561E2D]"
-            >
-              Next
-            </button>
           )}
         </div>
-      </section>
+
+        <div className="mt-6 text-center">
+          <p className="text-xs text-[#2B2022]/45">
+            Your test will be submitted automatically when
+            the timer reaches zero.
+          </p>
+        </div>
+      </div>
     </main>
-    );
+  );
 }
 
 export default function CBTTestPage() {
@@ -793,7 +640,7 @@ export default function CBTTestPage() {
         </main>
       }
     >
-      <CBTTestPage />
+      <CBTTestContent />
     </Suspense>
   );
 }

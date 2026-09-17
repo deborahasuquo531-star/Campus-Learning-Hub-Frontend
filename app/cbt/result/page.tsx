@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type ReviewItem = {
   question_id: number;
@@ -23,11 +23,11 @@ type Result = {
   percentage: number;
 };
 
-export default function CBTResultPage() {
+function CBTResultContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const courseId = searchParams.get("courseId");
+  const [courseId, setCourseId] =
+    useState<string | null>(null);
 
   const [result, setResult] =
     useState<Result | null>(null);
@@ -39,6 +39,12 @@ export default function CBTResultPage() {
     useState(false);
 
   useEffect(() => {
+    setCourseId(
+      new URLSearchParams(
+        window.location.search
+      ).get("courseId")
+    );
+
     try {
       const savedResult =
         sessionStorage.getItem("cbtResult");
@@ -116,7 +122,7 @@ export default function CBTResultPage() {
       A: item.option_a,
       B: item.option_b,
       C: item.option_c,
-      D: item.option_d
+      D: item.option_d,
     };
 
     return options[letter] || "";
@@ -160,8 +166,6 @@ export default function CBTResultPage() {
           </p>
         </div>
 
-        {/* SCORE CARD */}
-
         <div className="mt-10 rounded-3xl border border-[#6B2638]/10 bg-white p-8 text-center shadow-sm md:p-12">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#C89B5D]">
             Your Score
@@ -184,7 +188,7 @@ export default function CBTResultPage() {
                 width: `${Math.min(
                   percentage,
                   100
-                )}%`
+                )}%`,
               }}
             />
           </div>
@@ -197,8 +201,6 @@ export default function CBTResultPage() {
             {performance}
           </h2>
         </div>
-
-        {/* BUTTONS */}
 
         <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
           <button
@@ -219,8 +221,6 @@ export default function CBTResultPage() {
               : "Review Answers"}
           </button>
         </div>
-
-        {/* ANSWER REVIEW */}
 
         {showReview && (
           <section className="mt-10">
@@ -262,8 +262,6 @@ export default function CBTResultPage() {
                         {item.question}
                       </h3>
 
-                      {/* YOUR ANSWER */}
-
                       <div
                         className={`mt-5 rounded-2xl p-4 ${
                           item.is_correct
@@ -297,8 +295,6 @@ export default function CBTResultPage() {
                         </p>
                       </div>
 
-                      {/* CORRECT ANSWER */}
-
                       <div className="mt-4 rounded-2xl bg-[#FAF7F2] p-4">
                         <p className="text-xs font-semibold uppercase tracking-wide text-[#2B2022]/45">
                           Correct answer
@@ -312,8 +308,6 @@ export default function CBTResultPage() {
                           )}
                         </p>
                       </div>
-
-                      {/* EXPLANATION */}
 
                       {item.explanation && (
                         <div className="mt-4 rounded-2xl border border-[#C89B5D]/25 bg-[#C89B5D]/5 p-4">
@@ -336,4 +330,8 @@ export default function CBTResultPage() {
       </section>
     </main>
   );
+}
+
+export default function CBTResultPage() {
+  return <CBTResultContent />;
 }
