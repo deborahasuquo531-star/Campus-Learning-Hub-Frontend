@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Question = {
@@ -22,9 +22,9 @@ type Answer = {
 const BACKEND_URL =
   "https://learning-made-easy-backend.vercel.app";
 
-const TEST_DURATION_SECONDS = 15 * 60;
+const TEST_DURATION_SECONDS = 15 * 60s;
 
-export default function CBTTestPage() {
+function CBTTestPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -775,5 +775,25 @@ export default function CBTTestPage() {
         </div>
       </section>
     </main>
+    );
+}
+
+export default function CBTTestPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#FAF7F2]">
+          <div className="text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#6B2638]/15 border-t-[#6B2638]" />
+
+            <p className="mt-4 text-[#2B2022]/60">
+              Loading CBT...
+            </p>
+          </div>
+        </main>
+      }
+    >
+      <CBTTestPage />
+    </Suspense>
   );
 }
