@@ -51,16 +51,14 @@ function CBTTestContent() {
 
   const [submitting, setSubmitting] = useState(false);
 
+  /*
+   * GET ACCESS CODE AND COURSE
+   */
   useEffect(() => {
     const storedAccessCode =
       sessionStorage.getItem("cbtAccessCode");
 
-    if (!storedAccessCode) {
-      router.replace("/cbt");
-      return;
-    }
-
-    if (!courseId) {
+    if (!storedAccessCode || !courseId) {
       router.replace("/cbt");
       return;
     }
@@ -70,6 +68,9 @@ function CBTTestContent() {
     setLoading(false);
   }, [courseId, router]);
 
+  /*
+   * VERIFY CBT ACCESS
+   */
   useEffect(() => {
     if (!accessCode || !selectedCourseId) return;
 
@@ -95,13 +96,17 @@ function CBTTestContent() {
 
         if (!response.ok || !data.success) {
           throw new Error(
-            data.message || "CBT access verification failed."
+            data.message ||
+              "CBT access verification failed."
           );
         }
 
         setAccessVerified(true);
       } catch (err) {
-        console.error(err);
+        console.error(
+          "CBT access verification failed:",
+          err
+        );
 
         sessionStorage.removeItem("cbtAccessCode");
 
@@ -120,6 +125,9 @@ function CBTTestContent() {
     verifyAccess();
   }, [accessCode, selectedCourseId, router]);
 
+  /*
+   * LOAD QUESTIONS
+   */
   useEffect(() => {
     if (!accessVerified || !selectedCourseId) return;
 
@@ -143,27 +151,43 @@ function CBTTestContent() {
 
         if (!response.ok || !data.success) {
           throw new Error(
-            data.message || "Unable to load CBT questions."
+            data.message ||
+              "Unable to load CBT questions."
           );
         }
 
-        setQuestions(data.questions || []);
+        const loadedQuestions: Question[] =
+          data.questions || [];
 
-        const initialAnswers: Answer[] = (
-          data.questions || []
-        ).map((question: Question) => ({
-          question_id: question.id,
-          answer: "",
-        }));
+        if (loadedQuestions.length === 0) {
+          throw new Error(
+            "No CBT questions are available for this course."
+          );
+        }
+
+        setQuestions(loadedQuestions);
+
+        const initialAnswers: Answer[] =
+          loadedQuestions.map((question) => ({
+            question_id: question.id,
+            answer: "",
+          }));
 
         setAnswers(initialAnswers);
 
+        /*
+         * TIMER
+         *
+         * Continue existing test after refresh.
+         */
         const existingStartTime =
           sessionStorage.getItem("cbtStartTime");
 
         if (existingStartTime) {
           const elapsed = Math.floor(
-            (Date.now() - Number(existingStartTime)) / 1000
+            (Date.now() -
+              Number(existingStartTime)) /
+              1000
           );
 
           const remaining =
@@ -179,7 +203,10 @@ function CBTTestContent() {
           setTimeLeft(TEST_DURATION_SECONDS);
         }
       } catch (err) {
-        console.error(err);
+        console.error(
+          "Unable to load CBT questions:",
+          err
+        );
 
         setError(
           err instanceof Error
@@ -192,41 +219,62 @@ function CBTTestContent() {
     };
 
     loadQuestions();
-  }, [accessVerified, selectedCourseId, accessCode]);
+  }, [
+    accessVerified,
+    selectedCourseId,
+    accessCode,
+  ]);
 
+  /*
+   * COUNTDOWN TIMER
+   */
   useEffect(() => {
-    if (!accessVerified || questions.length === 0) {
+    if (
+      !accessVerified ||
+      questions.length === 0 ||
+      submitting
+    ) {
       return;
     }
 
-    if (timeLeft <= 0) {
-      return;
-    }
+    if (timeLeft <= 0) return;
 
     const timer = setInterval(() => {
-      setTimeLeft((previous) => {
-        if (previous <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-
-        return previous - 1;
-      });
+      setTimeLeft((previous) =>
+        previous > 0 ? previous - 1 : 0
+      );
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [accessVerified, questions.length, timeLeft]);
+  }, [
+    accessVerified,
+    questions.length,
+    submitting,
+    timeLeft,
+  ]);
 
+  /*
+   * AUTOMATIC SUBMISSION
+   */
   useEffect(() => {
     if (
       timeLeft === 0 &&
       questions.length > 0 &&
+      accessVerified &&
       !submitting
     ) {
       handleSubmit();
     }
-  }, [timeLeft, questions.length, submitting]);
+  }, [
+    timeLeft,
+    questions.length,
+    accessVerified,
+    submitting,
+  ]);
 
+  /*
+   * FORMAT TIMER
+   */
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -238,10 +286,14 @@ function CBTTestContent() {
       .padStart(2, "0")}`;
   };
 
+  /*
+   * SELECT ANSWER
+   */
   const handleAnswer = (answer: string) => {
     if (!questions[currentQuestion]) return;
 
-    const questionId = questions[currentQuestion].id;
+    const questionId =
+      questions[currentQuestion].id;
 
     setAnswers((previous) =>
       previous.map((item) =>
@@ -255,125 +307,195 @@ function CBTTestContent() {
     );
   };
 
+  /*
+   * GET CURRENT ANSWER
+   */
   const getCurrentAnswer = () => {
     if (!questions[currentQuestion]) return "";
 
-    const currentQuestionId =
+    const questionId =
       questions[currentQuestion].id;
 
     return (
       answers.find(
-        (answer) =>
-          answer.question_id === currentQuestionId
+        (item) =>
+          item.question_id === questionId
       )?.answer || ""
     );
   };
 
-  const handleNext = () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion((previous) => previous + 1);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion((previous) => previous - 1);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  const handleSubmit = () => {
+  /*
+   * SUBMIT CBT
+   */
+  const handleSubmit = async () => {
     if (submitting) return;
 
+    if (
+      !accessCode ||
+      !selectedCourseId ||
+      questions.length === 0
+    ) {
+      setError(
+        "Unable to submit the CBT. Please try again."
+      );
+      return;
+    }
+
     setSubmitting(true);
+    setError("");
 
-    let score = 0;
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/cbt/submit`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            access_code: accessCode,
+            course_id: Number(selectedCourseId),
+            answers: answers.map((item) => ({
+              question_id: Number(
+                item.question_id
+              ),
+              answer: item.answer || "",
+            })),
+          }),
+        }
+      );
 
-    const review = questions.map((question) => {
-      const studentAnswer =
-        answers.find(
-          (answer) =>
-            answer.question_id === question.id
-        )?.answer || "";
+      const data = await response.json();
 
-      const correctAnswer =
-        question.option_a === question.correct_answer
-          ? question.option_a
-          : question.option_b === question.correct_answer
-          ? question.option_b
-          : question.option_c === question.correct_answer
-          ? question.option_c
-          : question.option_d === question.correct_answer
-          ? question.option_d
-          : question.correct_answer;
+      console.log(
+        "CBT SUBMISSION RESPONSE:",
+        data
+      );
 
-      const isCorrect =
-        studentAnswer === question.correct_answer;
-
-      if (isCorrect) {
-        score++;
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message ||
+            "Unable to submit CBT."
+        );
       }
 
-      return {
-        question: question.question,
-        studentAnswer,
-        correctAnswer,
-        isCorrect,
-        explanation: question.explanation,
+      /*
+       * SAVE COMPLETE RESULT
+       */
+      const result = {
+        score: data.score ?? 0,
+        totalQuestions:
+          data.total_questions ??
+          questions.length,
+        percentage: data.percentage ?? 0,
+        courseId: selectedCourseId,
+        completedAt:
+          new Date().toISOString(),
       };
-    });
 
-    const totalQuestions = questions.length;
+      sessionStorage.setItem(
+        "cbtResult",
+        JSON.stringify(result)
+      );
 
-    const percentage =
-      totalQuestions > 0
-        ? Math.round((score / totalQuestions) * 100)
-        : 0;
+      /*
+       * SAVE QUESTIONS
+       */
+      sessionStorage.setItem(
+        "cbtQuestions",
+        JSON.stringify(questions)
+      );
 
-    const result = {
-      score,
-      totalQuestions,
-      percentage,
-      courseId: selectedCourseId,
-      completedAt: new Date().toISOString(),
-    };
+      /*
+       * SAVE STUDENT ANSWERS
+       */
+      sessionStorage.setItem(
+        "cbtAnswers",
+        JSON.stringify(answers)
+      );
 
-    sessionStorage.setItem(
-      "cbtResult",
-      JSON.stringify(result)
-    );
+      /*
+       * SAVE BACKEND REVIEW
+       *
+       * The backend should return:
+       * question
+       * student_answer
+       * correct_answer
+       * is_correct
+       * explanation
+       */
+      sessionStorage.setItem(
+        "cbtReview",
+        JSON.stringify(data.review || [])
+      );
 
-    sessionStorage.setItem(
-      "cbtQuestions",
-      JSON.stringify(questions)
-    );
+      /*
+       * REMOVE TIMER
+       */
+      sessionStorage.removeItem(
+        "cbtStartTime"
+      );
 
-    sessionStorage.setItem(
-      "cbtAnswers",
-      JSON.stringify(answers)
-    );
+      /*
+       * GO TO RESULT PAGE
+       */
+      router.replace(
+        `/cbt/result?courseId=${selectedCourseId}`
+      );
+    } catch (err) {
+      console.error(
+        "CBT submission failed:",
+        err
+      );
 
-    sessionStorage.setItem(
-      "cbtReview",
-      JSON.stringify(review)
-    );
+      setSubmitting(false);
 
-    sessionStorage.removeItem("cbtStartTime");
-
-    router.push(
-      `/cbt/result?courseId=${selectedCourseId}`
-    );
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to submit your CBT. Please try again."
+      );
+    }
   };
 
+  /*
+   * NEXT QUESTION
+   */
+  const handleNext = () => {
+    if (
+      currentQuestion <
+      questions.length - 1
+    ) {
+      setCurrentQuestion(
+        (previous) => previous + 1
+      );
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  /*
+   * PREVIOUS QUESTION
+   */
+  const handlePrevious = () => {
+    if (currentQuestion > 0) {
+      setCurrentQuestion(
+        (previous) => previous - 1
+      );
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  /*
+   * LOADING
+   */
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#FAF7F2]">
@@ -388,6 +510,9 @@ function CBTTestContent() {
     );
   }
 
+  /*
+   * ERROR
+   */
   if (error) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#FAF7F2] px-6">
@@ -405,7 +530,9 @@ function CBTTestContent() {
           </p>
 
           <button
-            onClick={() => router.replace("/cbt")}
+            onClick={() =>
+              router.replace("/cbt")
+            }
             className="mt-6 rounded-xl bg-[#6B2638] px-6 py-3 font-semibold text-white transition hover:bg-[#571f2e]"
           >
             Back to CBT
@@ -415,6 +542,9 @@ function CBTTestContent() {
     );
   }
 
+  /*
+   * PREPARING CBT
+   */
   if (
     !accessVerified ||
     loadingQuestions ||
@@ -433,20 +563,28 @@ function CBTTestContent() {
     );
   }
 
-  const question = questions[currentQuestion];
-  const currentAnswer = getCurrentAnswer();
+  const question =
+    questions[currentQuestion];
 
-  const answeredCount = answers.filter(
-    (answer) => answer.answer !== ""
-  ).length;
+  const currentAnswer =
+    getCurrentAnswer();
+
+  const answeredCount =
+    answers.filter(
+      (answer) => answer.answer !== ""
+    ).length;
 
   const progress =
-    ((currentQuestion + 1) / questions.length) * 100;
+    ((currentQuestion + 1) /
+      questions.length) *
+    100;
 
   const isLastQuestion =
-    currentQuestion === questions.length - 1;
+    currentQuestion ===
+    questions.length - 1;
 
-  const timerWarning = timeLeft <= 5 * 60;
+  const timerWarning =
+    timeLeft <= 5 * 60;
 
   const options = [
     {
@@ -467,6 +605,9 @@ function CBTTestContent() {
     },
   ];
 
+  /*
+   * CBT INTERFACE
+   */
   return (
     <main className="min-h-screen bg-[#FAF7F2]">
       <header className="sticky top-0 z-20 border-b border-[#2B2022]/10 bg-white/95 backdrop-blur">
@@ -551,10 +692,15 @@ function CBTTestContent() {
                   onClick={() =>
                     handleAnswer(option.value)
                   }
+                  disabled={submitting}
                   className={`flex w-full items-start gap-4 rounded-xl border p-4 text-left transition ${
                     selected
                       ? "border-[#6B2638] bg-[#6B2638]/5 ring-2 ring-[#6B2638]/10"
                       : "border-[#2B2022]/10 bg-white hover:border-[#A65D6F]/40 hover:bg-[#FAF7F2]"
+                  } ${
+                    submitting
+                      ? "cursor-not-allowed opacity-70"
+                      : ""
                   }`}
                 >
                   <span
@@ -586,7 +732,10 @@ function CBTTestContent() {
           <button
             type="button"
             onClick={handlePrevious}
-            disabled={currentQuestion === 0}
+            disabled={
+              currentQuestion === 0 ||
+              submitting
+            }
             className="rounded-xl border border-[#2B2022]/10 bg-white px-6 py-3 font-semibold text-[#2B2022] transition hover:bg-[#FAF7F2] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Previous
@@ -596,7 +745,8 @@ function CBTTestContent() {
             <button
               type="button"
               onClick={handleNext}
-              className="rounded-xl bg-[#6B2638] px-7 py-3 font-semibold text-white transition hover:bg-[#571f2e]"
+              disabled={submitting}
+              className="rounded-xl bg-[#6B2638] px-7 py-3 font-semibold text-white transition hover:bg-[#571f2e] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Next Question
             </button>
@@ -616,8 +766,9 @@ function CBTTestContent() {
 
         <div className="mt-6 text-center">
           <p className="text-xs text-[#2B2022]/45">
-            Your test will be submitted automatically when
-            the timer reaches zero.
+            Your test will be submitted
+            automatically when the timer reaches
+            zero.
           </p>
         </div>
       </div>
