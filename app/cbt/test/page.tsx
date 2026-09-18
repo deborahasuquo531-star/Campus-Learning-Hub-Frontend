@@ -33,6 +33,7 @@ function CBTTestContent() {
   const courseId = searchParams.get("courseId");
 
   const [accessCode, setAccessCode] = useState("");
+  const [studentEmail, setStudentEmail] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [accessVerified, setAccessVerified] = useState(false);
 
@@ -52,18 +53,26 @@ function CBTTestContent() {
   const [submitting, setSubmitting] = useState(false);
 
   /*
-   * GET ACCESS CODE AND COURSE
+   * GET ACCESS CODE, EMAIL AND COURSE
    */
   useEffect(() => {
     const storedAccessCode =
       sessionStorage.getItem("cbtAccessCode");
 
-    if (!storedAccessCode || !courseId) {
+    const storedStudentEmail =
+      sessionStorage.getItem("cbtStudentEmail");
+
+    if (
+      !storedAccessCode ||
+      !storedStudentEmail ||
+      !courseId
+    ) {
       router.replace("/cbt");
       return;
     }
 
     setAccessCode(storedAccessCode);
+    setStudentEmail(storedStudentEmail);
     setSelectedCourseId(courseId);
     setLoading(false);
   }, [courseId, router]);
@@ -72,7 +81,13 @@ function CBTTestContent() {
    * VERIFY CBT ACCESS
    */
   useEffect(() => {
-    if (!accessCode || !selectedCourseId) return;
+    if (
+      !accessCode ||
+      !studentEmail ||
+      !selectedCourseId
+    ) {
+      return;
+    }
 
     const verifyAccess = async () => {
       try {
@@ -87,6 +102,7 @@ function CBTTestContent() {
             },
             body: JSON.stringify({
               access_code: accessCode,
+              email: studentEmail,
               course: selectedCourseId,
             }),
           }
@@ -109,6 +125,7 @@ function CBTTestContent() {
         );
 
         sessionStorage.removeItem("cbtAccessCode");
+        sessionStorage.removeItem("cbtStudentEmail");
 
         setError(
           err instanceof Error
@@ -123,13 +140,25 @@ function CBTTestContent() {
     };
 
     verifyAccess();
-  }, [accessCode, selectedCourseId, router]);
+  }, [
+    accessCode,
+    studentEmail,
+    selectedCourseId,
+    router,
+  ]);
 
   /*
    * LOAD QUESTIONS
    */
   useEffect(() => {
-    if (!accessVerified || !selectedCourseId) return;
+    if (
+      !accessVerified ||
+      !selectedCourseId ||
+      !accessCode ||
+      !studentEmail
+    ) {
+      return;
+    }
 
     const loadQuestions = async () => {
       try {
@@ -143,6 +172,7 @@ function CBTTestContent() {
             headers: {
               "Content-Type": "application/json",
               "x-cbt-access-code": accessCode,
+              "x-cbt-email": studentEmail,
             },
           }
         );
@@ -167,6 +197,11 @@ function CBTTestContent() {
 
         setQuestions(loadedQuestions);
 
+        /*
+         * Every question starts unanswered.
+         *
+         * We deliberately do not restore previous answers.
+         */
         const initialAnswers: Answer[] =
           loadedQuestions.map((question) => ({
             question_id: question.id,
@@ -174,26 +209,39 @@ function CBTTestContent() {
           }));
 
         setAnswers(initialAnswers);
+        setCurrentQuestion(0);
 
         /*
          * TIMER
          *
-         * Continue existing test after refresh.
+         * Continue the current test after a refresh.
          */
         const existingStartTime =
           sessionStorage.getItem("cbtStartTime");
 
         if (existingStartTime) {
-          const elapsed = Math.floor(
-            (Date.now() -
-              Number(existingStartTime)) /
-              1000
-          );
+          const startTime = Number(existingStartTime);
 
-          const remaining =
-            TEST_DURATION_SECONDS - elapsed;
+          if (
+            Number.isFinite(startTime) &&
+            startTime > 0
+          ) {
+            const elapsed = Math.floor(
+              (Date.now() - startTime) / 1000
+            );
 
-          setTimeLeft(Math.max(remaining, 0));
+            const remaining =
+              TEST_DURATION_SECONDS - elapsed;
+
+            setTimeLeft(Math.max(remaining, 0));
+          } else {
+            sessionStorage.setItem(
+              "cbtStartTime",
+              Date.now().toString()
+            );
+
+            setTimeLeft(TEST_DURATION_SECONDS);
+          }
         } else {
           sessionStorage.setItem(
             "cbtStartTime",
@@ -223,6 +271,7 @@ function CBTTestContent() {
     accessVerified,
     selectedCourseId,
     accessCode,
+    studentEmail,
   ]);
 
   /*
@@ -288,9 +337,19 @@ function CBTTestContent() {
 
   /*
    * SELECT ANSWER
+   *
+   * We store A/B/C/D instead of the option text.
+   * This guarantees that only the clicked option
+   * can become selected, even if two options happen
+   * to contain identical text.
    */
-  const handleAnswer = (answer: string) => {
-    if (!questions[currentQuestion]) return;
+  const handleAnswer = (answerLetter: string) => {
+    if (
+      submitting ||
+      !questions[currentQuestion]
+    ) {
+      return;
+    }
 
     const questionId =
       questions[currentQuestion].id;
@@ -300,7 +359,7 @@ function CBTTestContent() {
         item.question_id === questionId
           ? {
               ...item,
-              answer,
+              answer: answerLetter,
             }
           : item
       )
@@ -311,17 +370,19 @@ function CBTTestContent() {
    * GET CURRENT ANSWER
    */
   const getCurrentAnswer = () => {
-    if (!questions[currentQuestion]) return "";
+    if (!questions[currentQuestion]) {
+      return "";
+    }
 
     const questionId =
       questions[currentQuestion].id;
 
-    return (
-      answers.find(
-        (item) =>
-          item.question_id === questionId
-      )?.answer || ""
+    const answer = answers.find(
+      (item) =>
+        item.question_id === questionId
     );
+
+    return answer?.answer || "";
   };
 
   /*
@@ -332,6 +393,7 @@ function CBTTestContent() {
 
     if (
       !accessCode ||
+      !studentEmail ||
       !selectedCourseId ||
       questions.length === 0
     ) {
@@ -354,6 +416,7 @@ function CBTTestContent() {
           },
           body: JSON.stringify({
             access_code: accessCode,
+            email: studentEmail,
             course_id: Number(selectedCourseId),
             answers: answers.map((item) => ({
               question_id: Number(
@@ -380,11 +443,11 @@ function CBTTestContent() {
       }
 
       /*
-       * SAVE COMPLETE RESULT
+       * SAVE RESULT
        */
       const result = {
         score: data.score ?? 0,
-        totalQuestions:
+        total_questions:
           data.total_questions ??
           questions.length,
         percentage: data.percentage ?? 0,
@@ -417,12 +480,12 @@ function CBTTestContent() {
       /*
        * SAVE BACKEND REVIEW
        *
-       * The backend should return:
-       * question
-       * student_answer
-       * correct_answer
-       * is_correct
-       * explanation
+       * This contains:
+       * - student's answer
+       * - correct answer
+       * - correct answer text
+       * - explanation
+       * - whether the answer was correct
        */
       sessionStorage.setItem(
         "cbtReview",
@@ -530,6 +593,7 @@ function CBTTestContent() {
           </p>
 
           <button
+            type="button"
             onClick={() =>
               router.replace("/cbt")
             }
@@ -683,16 +747,17 @@ function CBTTestContent() {
           <div className="space-y-3">
             {options.map((option) => {
               const selected =
-                currentAnswer === option.value;
+                currentAnswer === option.letter;
 
               return (
                 <button
                   key={option.letter}
                   type="button"
                   onClick={() =>
-                    handleAnswer(option.value)
+                    handleAnswer(option.letter)
                   }
                   disabled={submitting}
+                  aria-pressed={selected}
                   className={`flex w-full items-start gap-4 rounded-xl border p-4 text-left transition ${
                     selected
                       ? "border-[#6B2638] bg-[#6B2638]/5 ring-2 ring-[#6B2638]/10"
