@@ -1,311 +1,246 @@
-export default function Home() {
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+
+const courses = [
+  {
+    id: 1,
+    code: "GST 112",
+    title: "The Nigerian People and Culture",
+    description:
+      "Practice your understanding of Nigerian people, culture, social institutions, religion, law, and related topics.",
+  },
+  {
+    id: 2,
+    code: "GST 202",
+    title: "Philosophy and Logic for Human Existence",
+    description:
+      "Test your understanding of philosophy, logic, ethics, African philosophy, science, technology, health, and related topics.",
+  },
+];
+
+export default function CBTPage() {
+  const [accessCode, setAccessCode] = useState("");
+  const [showCourses, setShowCourses] = useState(false);
+  const [error, setError] = useState("");
+
+  function continueToCourses() {
+    const code = accessCode.trim().toUpperCase();
+
+    if (!code) {
+      setError("Please enter your access code.");
+      return;
+    }
+
+    if (code.length < 6) {
+      setError("Please enter a valid access code.");
+      return;
+    }
+
+    sessionStorage.setItem("cbtAccessCode", code);
+    setAccessCode(code);
+    setError("");
+    setShowCourses(true);
+  }
+
+  function changeCode() {
+    sessionStorage.removeItem("cbtAccessCode");
+    sessionStorage.removeItem("cbtStudent");
+    setAccessCode("");
+    setShowCourses(false);
+    setError("");
+  }
+
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      {/* Navbar */}
-      <nav className="border-b border-white/10">
+    <main className="min-h-screen bg-[#FAF7F2] text-[#2B2022]">
+      <header className="border-b border-[#6B2638]/10 bg-[#FAF7F2]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <div>
-            <h1 className="text-xl font-bold">CAMPUS LEARNING HUB</h1>
-            <p className="text-xs text-slate-400">
-              Learn smarter. Prepare better.
-            </p>
-          </div>
+          <Link
+            href="/"
+            className="text-xl font-bold tracking-tight text-[#6B2638]"
+          >
+            CAMPUS LEARNING HUB
+          </Link>
 
-          <div className="hidden items-center gap-8 md:flex">
-            <a href="#features" className="text-sm text-slate-300 hover:text-white">
-              Features
-            </a>
-            <a href="#how-it-works" className="text-sm text-slate-300 hover:text-white">
-              How it works
-            </a>
-            <a href="#pricing" className="text-sm text-slate-300 hover:text-white">
-              Pricing
-            </a>
-            <a
-              href="/login"
-              className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-slate-950"
-            >
-              Login
-            </a>
-          </div>
+          <Link
+            href="/"
+            className="text-sm font-medium text-[#2B2022]/60 transition hover:text-[#6B2638]"
+          >
+            ← Back Home
+          </Link>
         </div>
-      </nav>
+      </header>
 
-      {/* Hero */}
-      <section className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
-        <div>
-          <div className="mb-6 inline-flex rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 text-sm text-blue-300">
-            Your academic companion
-          </div>
+      <section className="mx-auto max-w-6xl px-6 py-16 md:py-20">
+        {!showCourses ? (
+          <div className="mx-auto max-w-xl">
+            <div className="text-center">
+              <span className="inline-flex rounded-full bg-[#6B2638]/8 px-4 py-2 text-sm font-medium text-[#6B2638]">
+                CBT Practice
+              </span>
 
-          <h2 className="text-5xl font-bold leading-tight md:text-6xl">
-            Your learning,
-            <span className="block text-blue-400">made easier.</span>
-          </h2>
+              <h1 className="mt-6 text-4xl font-bold tracking-tight md:text-5xl">
+                Enter Your Access Code
+              </h1>
 
-          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
-            Learn with an AI academic assistant trained around your course
-            materials, then test yourself with randomized CBT practice.
-          </p>
-
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-            <a
-              href="/login"
-              className="rounded-xl bg-blue-500 px-7 py-3.5 text-center font-semibold hover:bg-blue-400"
-            >
-              Get Started
-            </a>
-
-            <a
-              href="#features"
-              className="rounded-xl border border-white/15 px-7 py-3.5 text-center font-semibold text-slate-200 hover:bg-white/5"
-            >
-              Explore Features
-            </a>
-          </div>
-        </div>
-
-        {/* Dashboard preview */}
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl">
-          <div className="rounded-2xl bg-slate-900 p-5">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-400">Student Dashboard</p>
-                <h3 className="mt-1 text-xl font-bold">Welcome back 👋</h3>
-              </div>
-
-              <div className="h-10 w-10 rounded-full bg-blue-500" />
+              <p className="mt-5 text-lg leading-8 text-[#2B2022]/60">
+                Enter the access code you received after purchasing CBT access
+                to continue.
+              </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                <p className="text-sm text-slate-400">AI Assistant</p>
-                <p className="mt-2 text-lg font-semibold">
-                  Ask anything about your course
+            <div className="mt-10 rounded-3xl border border-[#6B2638]/10 bg-white p-8 shadow-sm">
+              <label
+                htmlFor="accessCode"
+                className="block text-sm font-semibold text-[#2B2022]"
+              >
+                Access Code
+              </label>
+
+              <input
+                id="accessCode"
+                type="text"
+                value={accessCode}
+                onChange={(e) => {
+                  setAccessCode(e.target.value.toUpperCase());
+                  setError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    continueToCourses();
+                  }
+                }}
+                placeholder="e.g. GST112-DG16N"
+                className="mt-3 w-full rounded-xl border border-[#6B2638]/15 bg-[#FAF7F2] px-4 py-4 text-center font-semibold tracking-wider text-[#2B2022] outline-none transition focus:border-[#6B2638] focus:ring-2 focus:ring-[#6B2638]/10"
+              />
+
+              {error && (
+                <p className="mt-3 text-sm font-medium text-red-600">
+                  {error}
                 </p>
-                <div className="mt-4 rounded-lg bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
-                  Start learning →
-                </div>
-              </div>
+              )}
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                <p className="text-sm text-slate-400">CBT Practice</p>
-                <p className="mt-2 text-lg font-semibold">
-                  Test your knowledge
-                </p>
-                <div className="mt-4 rounded-lg bg-green-500/10 px-4 py-3 text-sm text-green-300">
-                  Take a test →
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={continueToCourses}
+                className="mt-6 w-full rounded-xl bg-[#6B2638] px-5 py-4 font-semibold text-white transition hover:bg-[#561E2D]"
+              >
+                Continue
+              </button>
+
+              <p className="mt-5 text-center text-sm leading-6 text-[#2B2022]/50">
+                Your access code will be verified when you select your course
+                and begin the CBT.
+              </p>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm text-slate-400">Recent Performance</p>
-
-              <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800">
-                <div className="h-full w-[78%] rounded-full bg-blue-500" />
-              </div>
-
-              <div className="mt-2 flex justify-between text-sm">
-                <span className="text-slate-400">Overall progress</span>
-                <span className="font-semibold">78%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="border-y border-white/10 bg-slate-900/50">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
-              Everything in one place
-            </p>
-
-            <h2 className="mt-3 text-3xl font-bold md:text-4xl">
-              Learn. Practice. Improve.
-            </h2>
-
-            <p className="mt-4 text-slate-400">
-              CAMPUS LEARNING HUB combines academic assistance and examination
-              practice into one simple student platform.
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            <div className="rounded-3xl border border-white/10 bg-slate-950 p-8">
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-2xl">
-                AI
-              </div>
-
-              <h3 className="text-2xl font-bold">AI Academic Assistant</h3>
-
-              <p className="mt-4 leading-7 text-slate-400">
-                Ask questions and get student-friendly explanations based on
-                your available course materials.
+            <div className="mt-8 text-center">
+              <p className="text-sm text-[#2B2022]/50">
+                Don't have an access code?
               </p>
 
-              <a
-                href="/ai"
-                className="mt-6 inline-block font-semibold text-blue-400"
+              <Link
+                href="/"
+                className="mt-2 inline-block text-sm font-semibold text-[#6B2638] hover:underline"
               >
-                Explore AI Assistant →
-              </a>
+                Get CBT Access
+              </Link>
             </div>
+          </div>
+        ) : (
+          <>
+            <div className="text-center">
+              <span className="inline-flex rounded-full bg-[#6B2638]/8 px-4 py-2 text-sm font-medium text-[#6B2638]">
+                Access Code Accepted
+              </span>
 
-            <div className="rounded-3xl border border-white/10 bg-slate-950 p-8">
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-500/10 text-2xl">
-                CBT
-              </div>
+              <h1 className="mt-6 text-4xl font-bold tracking-tight md:text-5xl">
+                Choose Your Course
+              </h1>
 
-              <h3 className="text-2xl font-bold">CBT Practice</h3>
-
-              <p className="mt-4 leading-7 text-slate-400">
-                Practice with randomized questions from your course question
-                bank and see your performance after submitting.
+              <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#2B2022]/60">
+                Select the course you purchased to begin your CBT practice.
               </p>
 
-              <a
-                href="/cbt"
-                className="mt-6 inline-block font-semibold text-green-400"
-              >
-                Start CBT Practice →
-              </a>
+              <p className="mt-3 text-sm font-semibold text-[#6B2638]">
+                Access Code: {accessCode}
+              </p>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* How it works */}
-      <section id="how-it-works">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="text-center">
-            <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
-              Simple process
-            </p>
-
-            <h2 className="mt-3 text-3xl font-bold md:text-4xl">
-              How it works
-            </h2>
-          </div>
-
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {[
-              {
-                number: "01",
-                title: "Get access",
-                text: "Choose the learning or CBT option that fits your needs.",
-              },
-              {
-                number: "02",
-                title: "Learn & practice",
-                text: "Study with the AI assistant or take randomized CBT questions.",
-              },
-              {
-                number: "03",
-                title: "Track progress",
-                text: "Review your performance and identify areas to improve.",
-              },
-            ].map((item) => (
-              <div
-                key={item.number}
-                className="rounded-3xl border border-white/10 bg-slate-900 p-8"
-              >
-                <p className="text-4xl font-bold text-blue-500">
-                  {item.number}
-                </p>
-
-                <h3 className="mt-6 text-xl font-bold">{item.title}</h3>
-
-                <p className="mt-3 leading-7 text-slate-400">{item.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section id="pricing" className="border-y border-white/10 bg-slate-900/50">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="text-center">
-            <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
-              Pricing
-            </p>
-
-            <h2 className="mt-3 text-3xl font-bold md:text-4xl">
-              Choose what you need
-            </h2>
-          </div>
-
-          <div className="mx-auto mt-12 grid max-w-5xl gap-6 md:grid-cols-3">
-            {[
-              {
-                title: "AI Weekly",
-                price: "₦500",
-                description: "7 days of AI academic assistance.",
-              },
-              {
-                title: "AI Semester",
-                price: "₦1,000",
-                description: "AI academic assistance for the semester.",
-              },
-              {
-                title: "CBT",
-                price: "₦500",
-                description: "Lifetime access to CBT practice.",
-              },
-            ].map((plan) => (
-              <div
-                key={plan.title}
-                className="rounded-3xl border border-white/10 bg-slate-950 p-7"
-              >
-                <h3 className="text-xl font-bold">{plan.title}</h3>
-
-                <p className="mt-5 text-4xl font-bold">{plan.price}</p>
-
-                <p className="mt-4 min-h-12 text-slate-400">
-                  {plan.description}
-                </p>
-
-                <a
-                  href="/pricing"
-                  className="mt-7 block rounded-xl bg-white px-5 py-3 text-center font-semibold text-slate-950 hover:bg-slate-200"
+            <div className="mt-12 grid gap-6 md:grid-cols-2">
+              {courses.map((course) => (
+                <div
+                  key={course.id}
+                  className="rounded-3xl border border-[#6B2638]/10 bg-white p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
                 >
-                  Get Access
-                </a>
-              </div>
-            ))}
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <span className="text-sm font-semibold text-[#6B2638]">
+                        {course.code}
+                      </span>
+
+                      <h2 className="mt-3 text-2xl font-bold text-[#2B2022]">
+                        {course.title}
+                      </h2>
+                    </div>
+
+                    <div className="rounded-xl bg-[#6B2638]/7 px-3 py-2 text-sm font-semibold text-[#6B2638]">
+                      CBT
+                    </div>
+                  </div>
+
+                  <p className="mt-5 leading-7 text-[#2B2022]/60">
+                    {course.description}
+                  </p>
+
+                  <Link
+                    href={`/cbt/test?courseId=${course.id}`}
+                    className="mt-8 block rounded-xl bg-[#6B2638] px-5 py-3.5 text-center font-semibold text-white transition hover:bg-[#561E2D]"
+                  >
+                    Start {course.code} CBT
+                  </Link>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 text-center">
+              <button
+                type="button"
+                onClick={changeCode}
+                className="text-sm font-semibold text-[#6B2638] hover:underline"
+              >
+                ← Use a different access code
+              </button>
+            </div>
+          </>
+        )}
+
+        <div className="mt-12 rounded-2xl border border-[#6B2638]/10 bg-[#6B2638]/4 p-6">
+          <h3 className="font-semibold text-[#2B2022]">
+            How CBT practice works
+          </h3>
+
+          <div className="mt-4 grid gap-4 text-sm text-[#2B2022]/60 md:grid-cols-3">
+            <div>
+              <span className="font-semibold text-[#6B2638]">01.</span>{" "}
+              Enter your access code
+            </div>
+
+            <div>
+              <span className="font-semibold text-[#6B2638]">02.</span>{" "}
+              Choose your course
+            </div>
+
+            <div>
+              <span className="font-semibold text-[#6B2638]">03.</span>{" "}
+              Complete the CBT and view your result
+            </div>
           </div>
         </div>
+
+        <div className="mx-auto mt-12 h-1 w-16 rounded-full bg-[#C89B5D]" />
       </section>
-
-      {/* CTA */}
-      <section className="mx-auto max-w-5xl px-6 py-24 text-center">
-        <h2 className="text-4xl font-bold md:text-5xl">
-          Ready to make learning easier?
-        </h2>
-
-        <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-          Study smarter, practice consistently, and understand your courses
-          better.
-        </p>
-
-        <a
-          href="/login"
-          className="mt-8 inline-block rounded-xl bg-blue-500 px-8 py-4 font-semibold hover:bg-blue-400"
-        >
-          Get Started
-        </a>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-white/10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-8 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-          <p>© 2026 CAMPUS LEARNING HUB. All rights reserved.</p>
-          <p>Learn smarter. Prepare better.</p>
-        </div>
-      </footer>
     </main>
   );
 }
