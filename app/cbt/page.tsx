@@ -51,6 +51,7 @@ export default function CBTPage() {
           },
           body: JSON.stringify({
             access_code: code,
+            course: "1",
           }),
         }
       );
