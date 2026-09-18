@@ -3,335 +3,205 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type ReviewItem = {
-  question_id: number;
-  question: string;
-  option_a: string;
-  option_b: string;
-  option_c: string;
-  option_d: string;
-  student_answer: string | null;
-  correct_answer: string;
-  is_correct: boolean;
-  explanation: string;
-};
-
 type Result = {
-  success: boolean;
   score: number;
-  total_questions: number;
-  percentage: number;
+  total_questions?: number;
+  totalQuestions?: number;
+  percentage?: number;
+  course_id?: number;
+  courseId?: number;
 };
 
-function CBTResultContent() {
+type ReviewItem = {
+  question: string;
+  student_answer?: string;
+  student_answer_text?: string;
+  correct_answer?: string;
+  correct_answer_text?: string;
+  explanation?: string;
+  is_correct?: boolean;
+};
+
+export default function CBTResultPage() {
   const router = useRouter();
 
-  const [courseId, setCourseId] =
-    useState<string | null>(null);
-
-  const [result, setResult] =
-    useState<Result | null>(null);
-
-  const [review, setReview] =
-    useState<ReviewItem[]>([]);
-
-  const [showReview, setShowReview] =
-    useState(false);
+  const [result, setResult] = useState<Result | null>(null);
+  const [review, setReview] = useState<ReviewItem[]>([]);
+  const [courseId, setCourseId] = useState<string>("");
 
   useEffect(() => {
-    setCourseId(
-      new URLSearchParams(
-        window.location.search
-      ).get("courseId")
-    );
-
     try {
-      const savedResult =
-        sessionStorage.getItem("cbtResult");
-
-      const savedReview =
-        sessionStorage.getItem("cbtReview");
+      const savedResult = sessionStorage.getItem("cbtResult");
+      const savedReview = sessionStorage.getItem("cbtReview");
+      const savedCourseId = sessionStorage.getItem("cbtCourseId");
 
       if (!savedResult) {
         router.replace("/cbt");
         return;
       }
 
-      setResult(JSON.parse(savedResult));
+      const parsedResult = JSON.parse(savedResult);
+
+      setResult(parsedResult);
 
       if (savedReview) {
         setReview(JSON.parse(savedReview));
       }
-    } catch (error) {
-      console.error(
-        "Could not load CBT result:",
-        error
-      );
 
+      if (savedCourseId) {
+        setCourseId(savedCourseId);
+      } else if (parsedResult.course_id) {
+        setCourseId(String(parsedResult.course_id));
+      } else if (parsedResult.courseId) {
+        setCourseId(String(parsedResult.courseId));
+      }
+    } catch (error) {
+      console.error("Failed to load CBT result:", error);
       router.replace("/cbt");
     }
   }, [router]);
 
   if (!result) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#FAF7F2]">
-        <div className="text-center">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#6B2638]/15 border-t-[#6B2638]" />
-
-          <p className="mt-4 text-[#2B2022]/60">
-            Loading your result...
-          </p>
-        </div>
+      <main className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-600">Loading result...</p>
       </main>
     );
   }
 
-  const percentage = Number(
-    result.percentage || 0
-  );
+  // The CBT contains 50 questions.
+  // Use the value from the backend if available, otherwise fall back to 50.
+  const totalQuestions =
+    result.total_questions ??
+    result.totalQuestions ??
+    (review. length > 0 ? review. length : 50);
 
-  const courseName =
-    courseId === "1"
-      ? "GST 112 — The Nigerian People and Culture"
-      : courseId === "2"
-        ? "GST 202 — Philosophy and Logic for Human Existence"
-        : "CBT Result";
+  const score = Number(result.score ?? 0);
 
-  const performance =
-    percentage >= 70
-      ? "Strong Performance"
-      : percentage >= 50
-        ? "Good Attempt"
-        : "Keep Practicing";
-
-  function retakeTest() {
-    if (courseId) {
-      router.push(
-        `/cbt/test?courseId=${courseId}`
-      );
-    } else {
-      router.push("/cbt");
-    }
-  }
-
-  function getOptionText(
-    item: ReviewItem,
-    letter: string
-  ) {
-    const options: Record<string, string> = {
-      A: item.option_a,
-      B: item.option_b,
-      C: item.option_c,
-      D: item.option_d,
-    };
-
-    return options[letter] || "";
-  }
+  const percentage =
+    result.percentage !== undefined
+      ? Number(result.percentage)
+      : Math.round((score / totalQuestions) * 100);
 
   return (
-    <main className="min-h-screen bg-[#FAF7F2] text-[#2B2022]">
-      <header className="border-b border-[#6B2638]/10 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-          <div>
-            <p className="text-sm font-bold text-[#6B2638]">
-              CAMPUS LEARNING HUB
-            </p>
+    <main className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
 
-            <p className="mt-1 text-xs text-[#2B2022]/50">
-              CBT Result
-            </p>
-          </div>
-
-          <button
-            onClick={() => router.push("/cbt")}
-            className="text-sm font-semibold text-[#6B2638]"
-          >
-            Back to Courses
-          </button>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-4xl px-6 py-10 md:py-14">
-        <div className="text-center">
-          <span className="inline-flex rounded-full bg-[#6B2638]/8 px-4 py-2 text-sm font-semibold text-[#6B2638]">
-            {courseName}
-          </span>
-
-          <h1 className="mt-6 text-3xl font-bold md:text-4xl">
-            Test Completed
+        {/* RESULT SUMMARY */}
+        <div className="bg-white rounded-2xl shadow-md p-6 md:p-8 text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            CBT Result
           </h1>
 
-          <p className="mt-3 text-[#2B2022]/60">
-            Your answers have been submitted successfully.
-          </p>
-        </div>
-
-        <div className="mt-10 rounded-3xl border border-[#6B2638]/10 bg-white p-8 text-center shadow-sm md:p-12">
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#C89B5D]">
-            Your Score
+          <p className="text-gray-600 mb-8">
+            Your test has been submitted successfully.
           </p>
 
-          <div className="mt-4">
-            <span className="text-6xl font-bold text-[#6B2638]">
-              {result.score}
-            </span>
+          {/* SCORE */}
+          <div className="mb-6">
+            <p className="text-sm font-medium text-gray-500 mb-2">
+              TOTAL SCORE
+            </p>
 
-            <span className="ml-2 text-2xl text-[#2B2022]/35">
-              / {result.total_questions}
-            </span>
+            <div className="text-5xl font-bold text-blue-600">
+              {score} / {totalQuestions}
+            </div>
+
+            <p className="text-xl font-semibold text-gray-700 mt-3">
+              {percentage}%
+            </p>
           </div>
 
-          <div className="mx-auto mt-6 h-3 max-w-md overflow-hidden rounded-full bg-[#6B2638]/10">
-            <div
-              className="h-full rounded-full bg-[#C89B5D]"
-              style={{
-                width: `${Math.min(
-                  percentage,
-                  100
-                )}%`,
+          {/* PERFORMANCE */}
+          <div className="border-t pt-6">
+            <p className="text-gray-700">
+              You answered{" "}
+              <span className="font-bold">{score}</span> out of{" "}
+              <span className="font-bold">{totalQuestions}</span>{" "}
+              questions correctly.
+            </p>
+          </div>
+
+          {/* BUTTONS */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
+            <button
+              onClick={() => {
+                sessionStorage.removeItem("cbtAnswers");
+                sessionStorage.removeItem("cbtReview");
+                sessionStorage.removeItem("cbtResult");
+                sessionStorage.removeItem("cbtStartTime");
+
+                const targetCourse = courseId || "1";
+
+                router.push(`/cbt/test?courseId=${targetCourse}`);
               }}
-            />
+              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+            >
+              Retake Test
+            </button>
+
+            <button
+              onClick={() => router.push("/cbt")}
+              className="px-6 py-3 rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-100 transition"
+            >
+              Back to CBT
+            </button>
           </div>
-
-          <p className="mt-4 text-3xl font-bold">
-            {percentage}%
-          </p>
-
-          <h2 className="mt-6 text-xl font-bold text-[#6B2638]">
-            {performance}
-          </h2>
         </div>
 
-        <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-          <button
-            onClick={retakeTest}
-            className="rounded-xl bg-[#6B2638] px-7 py-3 font-semibold text-white hover:bg-[#561E2D]"
-          >
-            Retake Test
-          </button>
-
-          <button
-            onClick={() =>
-              setShowReview(!showReview)
-            }
-            className="rounded-xl border border-[#6B2638]/15 bg-white px-7 py-3 font-semibold text-[#6B2638]"
-          >
-            {showReview
-              ? "Hide Review"
-              : "Review Answers"}
-          </button>
-        </div>
-
-        {showReview && (
-          <section className="mt-10">
-            <h2 className="text-2xl font-bold">
+        {/* ANSWER REVIEW */}
+        {review.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
               Answer Review
             </h2>
 
-            <p className="mt-2 text-sm text-[#2B2022]/55">
-              Review your answers, the correct answers,
-              and the explanations.
-            </p>
+            <div className="space-y-6">
+              {review.map((item, index) => (
+                <div
+                  key={index}
+                  className="border border-gray-200 rounded-xl p-5"
+                >
+                  <p className="font-semibold text-gray-900 mb-4">
+                    {index + 1}. {item.question}
+                  </p>
 
-            {review.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-[#6B2638]/10 bg-white p-6">
-                <p className="text-[#2B2022]/60">
-                  Review information is not available
-                  for this attempt.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-6 space-y-5">
-                {review.map((item, index) => {
-                  const studentAnswer =
-                    item.student_answer;
+                  <div className="space-y-2 text-sm">
+                    <p>
+                      <span className="font-semibold">
+                        Your answer:
+                      </span>{" "}
+                      {item.student_answer_text ||
+                        item.student_answer ||
+                        "Not answered"}
+                    </p>
 
-                  const correctAnswer =
-                    item.correct_answer;
+                    <p>
+                      <span className="font-semibold">
+                        Correct answer:
+                      </span>{" "}
+                      {item.correct_answer_text ||
+                        item.correct_answer ||
+                        "Not available"}
+                    </p>
 
-                  return (
-                    <div
-                      key={item.question_id}
-                      className="rounded-3xl border border-[#6B2638]/10 bg-white p-6 shadow-sm"
-                    >
-                      <p className="text-sm font-semibold text-[#C89B5D]">
-                        Question {index + 1}
-                      </p>
-
-                      <h3 className="mt-3 font-bold leading-relaxed">
-                        {item.question}
-                      </h3>
-
-                      <div
-                        className={`mt-5 rounded-2xl p-4 ${
-                          item.is_correct
-                            ? "bg-green-50"
-                            : "bg-red-50"
-                        }`}
-                      >
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[#2B2022]/45">
-                          Your answer
+                    {item.explanation && (
+                      <div className="mt-3 rounded-lg bg-gray-50 p-4">
+                        <p className="font-semibold mb-1">
+                          Explanation:
                         </p>
-
-                        <p className="mt-2 font-semibold">
-                          {studentAnswer
-                            ? `${studentAnswer}. ${getOptionText(
-                                item,
-                                studentAnswer
-                              )}`
-                            : "Not answered"}
-                        </p>
-
-                        <p
-                          className={`mt-2 text-sm font-semibold ${
-                            item.is_correct
-                              ? "text-green-700"
-                              : "text-red-700"
-                          }`}
-                        >
-                          {item.is_correct
-                            ? "✓ Correct"
-                            : "✗ Incorrect"}
+                        <p className="text-gray-700">
+                          {item.explanation}
                         </p>
                       </div>
-
-                      <div className="mt-4 rounded-2xl bg-[#FAF7F2] p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[#2B2022]/45">
-                          Correct answer
-                        </p>
-
-                        <p className="mt-2 font-semibold text-[#6B2638]">
-                          {correctAnswer}.{" "}
-                          {getOptionText(
-                            item,
-                            correctAnswer
-                          )}
-                        </p>
-                      </div>
-
-                      {item.explanation && (
-                        <div className="mt-4 rounded-2xl border border-[#C89B5D]/25 bg-[#C89B5D]/5 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-[#C89B5D]">
-                            Explanation
-                          </p>
-
-                          <p className="mt-2 leading-relaxed text-[#2B2022]/75">
-                            {item.explanation}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
-      </section>
+      </div>
     </main>
   );
-}
-
-export default function CBTResultPage() {
-  return <CBTResultContent />;
 }
