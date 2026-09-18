@@ -20,13 +20,18 @@ const courses = [
   },
 ];
 
-const API_URL =
-  "https://learning-made-easy-backend.vercel.app";
+const API_URL = "https://learning-made-easy-backend.vercel.app";
 
 export default function CBTPage() {
   const [accessCode, setAccessCode] = useState("");
   const [verifiedCode, setVerifiedCode] = useState<string | null>(null);
-  const [showCourses, setShowCourses] = useState(false);
+  const [verifiedCourseId, setVerifiedCourseId] = useState<number | null>(
+    null
+  );
+  const [verifiedCourse, setVerifiedCourse] = useState<
+    (typeof courses)[number] | null
+  >(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,39 +47,78 @@ export default function CBTPage() {
     setError("");
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/cbt/access/verify`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            access_code: code,
-            course: "1",
-          }),
+      let matchedCourse = null;
+      let matchedData = null;
+
+      // Check the access code against BOTH courses.
+      // This allows GST 112 and GST 202 students to register
+      // independently at the same time.
+      for (const course of courses) {
+        try {
+          const response = await fetch(
+            `${API_URL}/api/cbt/access/verify`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                access_code: code,
+                course: String(course.id),
+              }),
+            }
+          );
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            matchedCourse = course;
+            matchedData = data;
+            break;
+          }
+        } catch (courseError) {
+          console.error(
+            `Verification failed for course ${course.id}:`,
+            courseError
+          );
         }
+      }
+
+      // The code did not match either course.
+      if (!matchedCourse || !matchedData) {
+        throw new Error("Invalid or inactive access code.");
+      }
+
+      // Save the verified student's access information.
+      sessionStorage.setItem("cbtAccessCode", code);
+
+      sessionStorage.setItem(
+        "cbtCourseId",
+        String(matchedCourse.id)
       );
 
-      const data = await response.json();
+      sessionStorage.setItem(
+        "cbtCourse",
+        JSON.stringify(matchedCourse)
+      );
 
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Invalid or inactive access code."
+      if (matchedData.student) {
+        sessionStorage.setItem(
+          "cbtStudent",
+          JSON.stringify(matchedData.student)
         );
       }
 
-      sessionStorage.setItem("cbtAccessCode", code);
-
-      if (data.student) {
+      if (matchedData.course) {
         sessionStorage.setItem(
-          "cbtStudent",
-          JSON.stringify(data.student)
+          "cbtVerifiedCourse",
+          JSON.stringify(matchedData.course)
         );
       }
 
       setVerifiedCode(code);
-      setShowCourses(true);
+      setVerifiedCourseId(matchedCourse.id);
+      setVerifiedCourse(matchedCourse);
     } catch (error) {
       console.error("CBT access verification failed:", error);
 
@@ -88,7 +132,8 @@ export default function CBTPage() {
     }
   }
 
-  if (!showCourses) {
+  // ACCESS CODE SCREEN
+  if (!verifiedCode || !verifiedCourseId || !verifiedCourse) {
     return (
       <main className="min-h-screen bg-[#FAF7F2] text-[#2B2022]">
         <header className="border-b border-[#6B2638]/10 bg-[#FAF7F2]">
@@ -147,7 +192,7 @@ export default function CBTPage() {
                     verifyAccessCode();
                   }
                 }}
-                placeholder="e.g. GST112-DG16N"
+                placeholder="Enter your access code"
                 autoComplete="off"
                 className="mt-3 w-full rounded-xl border border-[#6B2638]/15 bg-[#FAF7F2] px-4 py-3.5 font-medium uppercase tracking-wider text-[#2B2022] outline-none transition placeholder:normal-case placeholder:tracking-normal focus:border-[#6B2638] focus:ring-2 focus:ring-[#6B2638]/10"
               />
@@ -182,6 +227,7 @@ export default function CBTPage() {
     );
   }
 
+  // VERIFIED COURSE SCREEN
   return (
     <main className="min-h-screen bg-[#FAF7F2] text-[#2B2022]">
       <header className="border-b border-[#6B2638]/10 bg-[#FAF7F2]">
@@ -198,9 +244,15 @@ export default function CBTPage() {
             onClick={() => {
               sessionStorage.removeItem("cbtAccessCode");
               sessionStorage.removeItem("cbtStudent");
+              sessionStorage.removeItem("cbtCourse");
+              sessionStorage.removeItem("cbtCourseId");
+              sessionStorage.removeItem("cbtVerifiedCourse");
+
               setVerifiedCode(null);
-              setShowCourses(false);
+              setVerifiedCourseId(null);
+              setVerifiedCourse(null);
               setAccessCode("");
+              setError("");
             }}
             className="text-sm font-medium text-[#2B2022]/60 transition hover:text-[#6B2638]"
           >
@@ -209,91 +261,93 @@ export default function CBTPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 py-16 md:py-20">
+      <section className="mx-auto max-w-4xl px-6 py-16 md:py-20">
         <div className="text-center">
           <span className="inline-flex rounded-full bg-[#6B2638]/8 px-4 py-2 text-sm font-medium text-[#6B2638]">
-            CBT Practice
+            Access Verified
           </span>
 
           <h1 className="mt-6 text-4xl font-bold tracking-tight text-[#2B2022] md:text-5xl">
-            Choose Your Course
+            Your CBT Is Ready
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#2B2022]/60">
-            Your access code has been verified. Select a course to
-            begin your practice.
+            Your access code has been verified successfully. You
+            have access to the following course:
           </p>
-
-          {verifiedCode && (
-            <p className="mt-3 text-sm font-semibold text-[#6B2638]">
-              Access verified
-            </p>
-          )}
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-2">
-          {courses.map((course) => (
-            <div
-              key={course.id}
-              className="rounded-3xl border border-[#6B2638]/10 bg-white p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <span className="text-sm font-semibold text-[#6B2638]">
-                    {course.code}
-                  </span>
+        <div className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#6B2638]/20 bg-white p-8 shadow-sm md:p-10">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <span className="text-sm font-semibold text-[#6B2638]">
+                {verifiedCourse.code}
+              </span>
 
-                  <h2 className="mt-3 text-2xl font-bold text-[#2B2022]">
-                    {course.title}
-                  </h2>
-                </div>
+              <h2 className="mt-3 text-3xl font-bold text-[#2B2022]">
+                {verifiedCourse.title}
+              </h2>
+            </div>
 
-                <div className="rounded-xl bg-[#6B2638]/7 px-3 py-2 text-sm font-semibold text-[#6B2638]">
-                  CBT
-                </div>
+            <div className="rounded-xl bg-[#6B2638]/7 px-3 py-2 text-sm font-semibold text-[#6B2638]">
+              CBT
+            </div>
+          </div>
+
+          <p className="mt-5 leading-7 text-[#2B2022]/60">
+            {verifiedCourse.description}
+          </p>
+
+          <div className="mt-6 rounded-2xl bg-[#FAF7F2] p-5">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-[#2B2022]/40">
+                  Course
+                </p>
+                <p className="mt-1 font-semibold text-[#2B2022]">
+                  {verifiedCourse.code}
+                </p>
               </div>
 
-              <p className="mt-5 leading-7 text-[#2B2022]/60">
-                {course.description}
-              </p>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-[#2B2022]/40">
+                  Access
+                </p>
+                <p className="mt-1 font-semibold text-[#2B2022]">
+                  Lifetime
+                </p>
+              </div>
 
-              <Link
-                href={`/cbt/test?courseId=${course.id}`}
-                className="mt-8 block rounded-xl bg-[#6B2638] px-5 py-3.5 text-center font-semibold text-white transition hover:bg-[#561E2D]"
-              >
-                Start {course.code} CBT
-              </Link>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-[#2B2022]/40">
+                  Duration
+                </p>
+                <p className="mt-1 font-semibold text-[#2B2022]">
+                  15 minutes
+                </p>
+              </div>
             </div>
-          ))}
+          </div>
+
+          <Link
+            href={`/cbt/test?courseId=${verifiedCourse.id}`}
+            className="mt-8 block rounded-xl bg-[#6B2638] px-5 py-4 text-center font-semibold text-white transition hover:bg-[#561E2D]"
+          >
+            Start {verifiedCourse.code} CBT
+          </Link>
         </div>
 
         <div className="mt-10 rounded-2xl border border-[#6B2638]/10 bg-[#6B2638]/4 p-6">
           <h3 className="font-semibold text-[#2B2022]">
-            How CBT practice works
+            Before you begin
           </h3>
 
-          <div className="mt-4 grid gap-4 text-sm text-[#2B2022]/60 md:grid-cols-3">
-            <div>
-              <span className="font-semibold text-[#6B2638]">
-                01.
-              </span>{" "}
-              Verify your access
-            </div>
-
-            <div>
-              <span className="font-semibold text-[#6B2638]">
-                02.
-              </span>{" "}
-              Choose your course
-            </div>
-
-            <div>
-              <span className="font-semibold text-[#6B2638]">
-                03.
-              </span>{" "}
-              Complete the CBT and view your result
-            </div>
-          </div>
+          <ul className="mt-4 space-y-2 text-sm leading-6 text-[#2B2022]/60">
+            <li>• You have 15 minutes to complete the test.</li>
+            <li>• The test will automatically submit when the timer reaches zero.</li>
+            <li>• Your score and answer review will be shown after submission.</li>
+            <li>• Your access code can be used again for future practice.</li>
+          </ul>
         </div>
 
         <div className="mx-auto mt-12 h-1 w-16 rounded-full bg-[#C89B5D]" />
