@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const courses = [
   {
@@ -24,6 +24,8 @@ const API_URL = "https://learning-made-easy-backend.vercel.app";
 
 export default function CBTPage() {
   const [accessCode, setAccessCode] = useState("");
+  const [studentEmail, setStudentEmail] = useState("");
+
   const [verifiedCode, setVerifiedCode] = useState<string | null>(null);
   const [verifiedCourseId, setVerifiedCourseId] = useState<number | null>(
     null
@@ -35,8 +37,58 @@ export default function CBTPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Restore previously saved CBT access information if available.
+  useEffect(() => {
+    const storedAccessCode = sessionStorage.getItem("cbtAccessCode");
+    const storedStudentEmail = sessionStorage.getItem("cbtStudentEmail");
+    const storedCourseId = sessionStorage.getItem("cbtCourseId");
+    const storedCourse = sessionStorage.getItem("cbtCourse");
+
+    if (storedAccessCode) {
+      setAccessCode(storedAccessCode);
+    }
+
+    if (storedStudentEmail) {
+      setStudentEmail(storedStudentEmail);
+    }
+
+    if (storedCourseId) {
+      const courseId = Number(storedCourseId);
+      const course = courses.find((item) => item.id === courseId);
+
+      if (course) {
+        setVerifiedCode(storedAccessCode);
+        setVerifiedCourseId(course.id);
+        setVerifiedCourse(course);
+
+        if (storedCourse) {
+          try {
+            const parsedCourse = JSON.parse(storedCourse);
+
+            if (parsedCourse?.id === course.id) {
+              setVerifiedCourse(parsedCourse);
+            }
+          } catch {
+            // Keep the course from the local course list.
+          }
+        }
+      }
+    }
+  }, []);
+
   async function verifyAccessCode() {
     const code = accessCode.trim().toUpperCase();
+    const email = studentEmail.trim().toLowerCase();
+
+    if (!email) {
+      setError("Please enter the email address you used for payment.");
+      return;
+    }
+
+    if (!email.includes("@")) {
+      setError("Please enter a valid email address.");
+      return;
+    }
 
     if (!code) {
       setError("Please enter your CBT access code.");
@@ -47,12 +99,12 @@ export default function CBTPage() {
     setError("");
 
     try {
-      let matchedCourse = null;
-      let matchedData = null;
+      let matchedCourse: (typeof courses)[number] | null = null;
+      let matchedData: any = null;
 
-      // Check the access code against BOTH courses.
-      // This allows GST 112 and GST 202 students to register
-      // independently at the same time.
+      // Check the access code + payment email against BOTH courses.
+      // This allows GST 112 and GST 202 students to use their own
+      // access independently at the same time.
       for (const course of courses) {
         try {
           const response = await fetch(
@@ -65,6 +117,7 @@ export default function CBTPage() {
               body: JSON.stringify({
                 access_code: code,
                 course: String(course.id),
+                email,
               }),
             }
           );
@@ -84,13 +137,16 @@ export default function CBTPage() {
         }
       }
 
-      // The code did not match either course.
+      // The code + email did not match either course.
       if (!matchedCourse || !matchedData) {
-        throw new Error("Invalid or inactive access code.");
+        throw new Error(
+          "Invalid access code or payment email. Please make sure you are using the email address used for your CBT payment."
+        );
       }
 
-      // Save the verified student's access information.
+      // Save verified access information.
       sessionStorage.setItem("cbtAccessCode", code);
+      sessionStorage.setItem("cbtStudentEmail", email);
 
       sessionStorage.setItem(
         "cbtCourseId",
@@ -116,6 +172,8 @@ export default function CBTPage() {
         );
       }
 
+      setAccessCode(code);
+      setStudentEmail(email);
       setVerifiedCode(code);
       setVerifiedCourseId(matchedCourse.id);
       setVerifiedCourse(matchedCourse);
@@ -125,7 +183,7 @@ export default function CBTPage() {
       setError(
         error instanceof Error
           ? error.message
-          : "Unable to verify your access code. Please try again."
+          : "Unable to verify your access. Please try again."
       );
     } finally {
       setLoading(false);
@@ -162,19 +220,49 @@ export default function CBTPage() {
               </span>
 
               <h1 className="mt-6 text-4xl font-bold tracking-tight text-[#2B2022]">
-                Enter Your Access Code
+                Enter Your Access Details
               </h1>
 
               <p className="mt-4 leading-7 text-[#2B2022]/60">
-                Enter the CBT access code you received after payment
-                to continue.
+                Enter the email address you used for payment and the
+                CBT access code you received.
               </p>
             </div>
 
             <div className="mt-10 rounded-3xl border border-[#6B2638]/10 bg-white p-8 shadow-sm">
               <label
-                htmlFor="accessCode"
+                htmlFor="studentEmail"
                 className="block text-sm font-semibold text-[#2B2022]"
+              >
+                Payment Email
+              </label>
+
+              <input
+                id="studentEmail"
+                type="email"
+                value={studentEmail}
+                onChange={(event) => {
+                  setStudentEmail(event.target.value);
+                  setError("");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    verifyAccessCode();
+                  }
+                }}
+                placeholder="Enter the email used for payment"
+                autoComplete="email"
+                className="mt-3 w-full rounded-xl border border-[#6B2638]/15 bg-[#FAF7F2] px-4 py-3.5 font-medium text-[#2B2022] outline-none transition placeholder:text-[#2B2022]/35 focus:border-[#6B2638] focus:ring-2 focus:ring-[#6B2638]/10"
+              />
+
+              <p className="mt-2 text-xs leading-5 text-[#2B2022]/45">
+                Use the same email address you entered when making
+                your CBT payment.
+              </p>
+
+              <label
+                htmlFor="accessCode"
+                className="mt-6 block text-sm font-semibold text-[#2B2022]"
               >
                 CBT Access Code
               </label>
@@ -215,8 +303,8 @@ export default function CBTPage() {
               </button>
 
               <p className="mt-5 text-center text-xs leading-5 text-[#2B2022]/45">
-                Your access code is verified securely before you can
-                begin a CBT.
+                Your payment email, access code, and course are
+                verified securely before you can begin a CBT.
               </p>
             </div>
 
@@ -243,6 +331,7 @@ export default function CBTPage() {
             type="button"
             onClick={() => {
               sessionStorage.removeItem("cbtAccessCode");
+              sessionStorage.removeItem("cbtStudentEmail");
               sessionStorage.removeItem("cbtStudent");
               sessionStorage.removeItem("cbtCourse");
               sessionStorage.removeItem("cbtCourseId");
@@ -252,6 +341,7 @@ export default function CBTPage() {
               setVerifiedCourseId(null);
               setVerifiedCourse(null);
               setAccessCode("");
+              setStudentEmail("");
               setError("");
             }}
             className="text-sm font-medium text-[#2B2022]/60 transition hover:text-[#6B2638]"
@@ -272,8 +362,8 @@ export default function CBTPage() {
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#2B2022]/60">
-            Your access code has been verified successfully. You
-            have access to the following course:
+            Your access details have been verified successfully.
+            You have access to the following course:
           </p>
         </div>
 
@@ -344,9 +434,18 @@ export default function CBTPage() {
 
           <ul className="mt-4 space-y-2 text-sm leading-6 text-[#2B2022]/60">
             <li>• You have 15 minutes to complete the test.</li>
-            <li>• The test will automatically submit when the timer reaches zero.</li>
-            <li>• Your score and answer review will be shown after submission.</li>
-            <li>• Your access code can be used again for future practice.</li>
+            <li>
+              • The test will automatically submit when the timer
+              reaches zero.
+            </li>
+            <li>
+              • Your score and corrected answer review will be shown
+              after submission.
+            </li>
+            <li>
+              • Your access code can be used again for future
+              practice.
+            </li>
           </ul>
         </div>
 
