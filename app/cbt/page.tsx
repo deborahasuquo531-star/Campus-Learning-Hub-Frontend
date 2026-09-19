@@ -18,6 +18,20 @@ const courses = [
     description:
       "Test your understanding of philosophy, logic, ethics, African philosophy, science, technology, health, and related topics.",
   },
+  {
+    id: 3,
+    code: "GST 312 — Venture Creation",
+    title: "Venture Creation",
+    description:
+      "Test your understanding of entrepreneurship, venture creation, business development, innovation, opportunity identification, and related topics.",
+  },
+  {
+    id: 4,
+    code: "GST 312 — Peace and Conflict Resolution",
+    title: "Peace and Conflict Resolution",
+    description:
+      "Test your understanding of conflict, peacebuilding, conflict management, resolution approaches, negotiation, mediation, and related topics.",
+  },
 ];
 
 const API_URL = "https://learning-made-easy-backend.vercel.app";
@@ -102,9 +116,7 @@ export default function CBTPage() {
       let matchedCourse: (typeof courses)[number] | null = null;
       let matchedData: any = null;
 
-      // Check the access code + payment email against BOTH courses.
-      // This allows GST 112 and GST 202 students to use their own
-      // access independently at the same time.
+      // Check the access code + payment email against all courses.
       for (const course of courses) {
         try {
           const response = await fetch(
@@ -137,7 +149,6 @@ export default function CBTPage() {
         }
       }
 
-      // The code + email did not match either course.
       if (!matchedCourse || !matchedData) {
         throw new Error(
           "Invalid access code or payment email. Please make sure you are using the email address used for your CBT payment."

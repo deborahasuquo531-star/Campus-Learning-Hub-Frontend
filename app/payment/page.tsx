@@ -14,8 +14,18 @@ const courses = [
   },
   {
     id: 2,
-    code: "GST202",
-    name: "GST 202 — Philosophy and Logic for Human Existence",
+    code: "GST212",
+    name: "GST 212 — Philosophy and Logic for Human Existence",
+  },
+  {
+    id: 3,
+    code: "GST312-VC",
+    name: "GST 312 — Venture Creation",
+  },
+  {
+    id: 4,
+    code: "GST312",
+    name: "GST 312 — Peace and Conflict Resolution",
   },
 ];
 
@@ -72,18 +82,18 @@ export default function CBTPaymentPage() {
           body: JSON.stringify({
             reference,
           }),
+          cache: "no-store",
         }
       );
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-      throw new Error(
-      data.message ||
-      data.error ||
-
-      "Payment verification failed. Please contact support if you were charged."
-      ); 
+        throw new Error(
+          data.message ||
+            data.error ||
+            "Payment verification failed. Please contact support if you were charged."
+        );
       }
 
       const code =
@@ -96,6 +106,24 @@ export default function CBTPaymentPage() {
         );
       }
 
+      /*
+       * The payment page saved the selected course ID
+       * before sending the user to Paystack.
+       *
+       * We use that same course ID when entering the CBT.
+       */
+      const savedCourseId =
+        sessionStorage.getItem("cbtPaymentCourse") ||
+        "";
+
+      const savedEmail =
+        sessionStorage.getItem("cbtPaymentEmail") ||
+        "";
+
+      /*
+       * Keep the backend's returned course information
+       * for display purposes.
+       */
       const course =
         data.course ||
         data.student?.course ||
@@ -105,24 +133,64 @@ export default function CBTPaymentPage() {
       setVerifiedCourse(course);
       setStatus("success");
 
+      /*
+       * Access code
+       */
       sessionStorage.setItem(
         "cbtAccessCode",
         code
       );
 
+      /*
+       * Email expected by the CBT test page
+       */
+      if (savedEmail) {
+        sessionStorage.setItem(
+          "cbtStudentEmail",
+          savedEmail
+        );
+
+        sessionStorage.setItem(
+          "cbtPaymentEmail",
+          savedEmail
+        );
+      }
+
+      /*
+       * Course ID expected by the CBT test page
+       */
+      if (savedCourseId) {
+        sessionStorage.setItem(
+          "cbtCourseId",
+          savedCourseId
+        );
+
+        sessionStorage.setItem(
+          "cbtPaymentCourse",
+          savedCourseId
+        );
+      }
+
+      /*
+       * Keep the backend course information as well.
+       */
       if (course) {
         sessionStorage.setItem(
           "cbtCourse",
           String(course)
         );
+
+        sessionStorage.setItem(
+          "cbtVerifiedCourse",
+          String(course)
+        );
       }
 
-      sessionStorage.removeItem(
-        "cbtPaymentReference"
+      sessionStorage.setItem(
+        "cbtPaymentReference",
+        reference
       );
-      sessionStorage.removeItem(
-        "cbtPaymentEmail"
-      );
+
     } catch (err) {
       setStatus("failed");
 
@@ -169,9 +237,31 @@ export default function CBTPaymentPage() {
       return;
     }
 
+    if (!form.course) {
+      setError("Please select a course.");
+      return;
+    }
+
     setLoading(true);
 
     try {
+      /*
+       * Save the selected course and email BEFORE
+       * redirecting to Paystack.
+       *
+       * These values are needed after Paystack
+       * redirects the student back to this page.
+       */
+      sessionStorage.setItem(
+        "cbtPaymentEmail",
+        form.email.trim().toLowerCase()
+      );
+
+      sessionStorage.setItem(
+        "cbtPaymentCourse",
+        form.course
+      );
+
       const response = await fetch(
         `${BACKEND_URL}/api/cbt/payment`,
         {
@@ -185,6 +275,7 @@ export default function CBTPaymentPage() {
             phone: form.phone.trim(),
             course: form.course,
           }),
+          cache: "no-store",
         }
       );
 
@@ -207,16 +298,6 @@ export default function CBTPaymentPage() {
         );
       }
 
-      sessionStorage.setItem(
-        "cbtPaymentEmail",
-        form.email.trim()
-      );
-
-      sessionStorage.setItem(
-        "cbtPaymentCourse",
-        form.course
-      );
-
       window.location.href =
         data.authorization_url;
     } catch (err) {
@@ -231,14 +312,43 @@ export default function CBTPaymentPage() {
   }
 
   function continueToCBT() {
+    /*
+     * Make absolutely sure the CBT has the access
+     * information it needs before entering.
+     */
     sessionStorage.setItem(
       "cbtAccessCode",
       accessCode
     );
 
+    const savedCourseId =
+      sessionStorage.getItem("cbtPaymentCourse");
+
+    const savedEmail =
+      sessionStorage.getItem("cbtPaymentEmail");
+
+    if (savedCourseId) {
+      sessionStorage.setItem(
+        "cbtCourseId",
+        savedCourseId
+      );
+    }
+
+    if (savedEmail) {
+      sessionStorage.setItem(
+        "cbtStudentEmail",
+        savedEmail
+      );
+    }
+
     if (verifiedCourse) {
       sessionStorage.setItem(
         "cbtCourse",
+        String(verifiedCourse)
+      );
+
+      sessionStorage.setItem(
+        "cbtVerifiedCourse",
         String(verifiedCourse)
       );
     }
@@ -336,43 +446,39 @@ export default function CBTPaymentPage() {
             </div>
 
             <div className="mt-8 space-y-4">
-  <button
-    type="button"
-    onClick={continueToCBT}
-    className="w-full rounded-xl bg-[#6B2638] px-5 py-4 font-semibold text-white transition hover:bg-[#561E2D]"
-  >
-    Continue to CBT →
-  </button>
+              <button
+                type="button"
+                onClick={continueToCBT}
+                className="w-full rounded-xl bg-[#6B2638] px-5 py-4 font-semibold text-white transition hover:bg-[#561E2D]"
+              >
+                Continue to CBT →
+              </button>
 
-  <a
-    href="https://chat.whatsapp.com/Fuc0t8KU2MTFfMi58PvBuc?s=cl&p=a&mlu=4&ilr=4"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="flex w-full items-center justify-center gap-3 rounded-xl border border-green-200 bg-green-50 px-5 py-4 font-semibold text-green-700 transition hover:bg-green-100"
-  >
-    <svg
-      viewBox="0 0 24 24"
-      className="h-6 w-6"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M20.52 3.48A11.79 11.79 0 0 0 12.06 0C5.53 0 .22 5.31.22 11.84c0 2.09.55 4.13 1.59 5.93L.13 24l6.37-1.67a11.8 11.8 0 0 0 5.56 1.41h.01c6.53 0 11.84-5.31 11.84-11.84 0-3.17-1.23-6.14-3.39-8.42ZM12.07 21.8h-.01a9.82 9.82 0 0 1-5.01-1.37l-.36-.21-3.78.99 1.01-3.68-.23-.38a9.82 9.82 0 1 1 8.38 4.65Zm5.39-7.36c-.29-.15-1.72-.85-1.99-.95-.27-.1-.46-.15-.65.15-.19.29-.75.95-.92 1.14-.17.19-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.77-1.44-1.72-1.61-2.01-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.65-1.58-.89-2.17-.23-.57-.47-.5-.65-.51h-.56c-.19 0-.51.07-.78.36-.27.29-1.02 1-1.02 2.43s1.04 2.82 1.19 3.01c.15.19 2.04 3.12 4.94 4.37.69.3 1.23.48 1.65.61.69.22 1.32.19 1.82.12.55-.08 1.72-.7 1.96-1.37.24-.67.24-1.24.17-1.37-.07-.12-.27-.19-.56-.34Z" />
-    </svg>
+              <a
+                href="https://chat.whatsapp.com/Fuc0t8KU2MTFfMi58PvBuc?s=cl&p=a&mlu=4&ilr=4"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-green-200 bg-green-50 px-5 py-4 font-semibold text-green-700 transition hover:bg-green-100"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-6 w-6"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M20.52 3.48A11.79 11.79 0 0 0 12.06 0C5.53 0 .22 5.31.22 11.84c0 2.09.55 4.13 1.59 5.93L.13 24l6.37-1.67a11.8 11.8 0 0 0 5.56 1.41h.01c6.53 0 11.84-5.31 11.84-11.84 0-3.17-1.23-6.14-3.39-8.42ZM12.07 21.8h-.01a9.82 9.82 0 0 1-5.01-1.37l-.36-.21-3.78.99 1.01-3.68-.23-.38a9.82 9.82 0 1 1 8.38 4.65Zm5.39-7.36c-.29-.15-1.72-.85-1.99-.95-.27-.1-.46-.15-.65.15-.19.29-.75.95-.92 1.14-.17.19-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.77-1.44-1.72-1.61-2.01-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.65-1.58-.89-2.17-.23-.57-.47-.5-.65-.51h-.56c-.19 0-.51.07-.78.36-.27.29-1.02 1-1.02 2.43s1.04 2.82 1.19 3.01c.15.19 2.04 3.12 4.94 4.37.69.3 1.23.48 1.65.61.69.22 1.32.19 1.82.12.55-.08 1.72-.7 1.96-1.37.24-.67.24-1.24.17-1.37-.07-.12-.27-.19-.56-.34Z" />
+                </svg>
 
-    <span>Join our WhatsApp Support Community</span>
-  </a>
-</div>
+                <span>
+                  Join our WhatsApp Support Community
+                </span>
+              </a>
+            </div>
 
-<p className="mt-4 text-sm leading-6 text-[#2B2022]/50">
-  Join our WhatsApp support community for more updates and support.
-</p>
-
-<Link
-  href="/"
-  className="mt-5 inline-block text-sm font-medium text-[#6B2638]"
->
-  Return to Homepage
-</Link>
+            <p className="mt-4 text-sm leading-6 text-[#2B2022]/50">
+              Join our WhatsApp support community for
+              more updates and support.
+            </p>
 
             <Link
               href="/"

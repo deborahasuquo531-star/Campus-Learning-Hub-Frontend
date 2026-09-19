@@ -1,7 +1,14 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Suspense,
+  useEffect,
+  useState,
+} from "react";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 type Question = {
   id: number;
@@ -12,8 +19,8 @@ type Question = {
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_answer: string;
-  explanation: string;
+  correct_answer?: string;
+  explanation?: string;
 };
 
 type Answer = {
@@ -32,20 +39,34 @@ const BACKEND_URL =
 
 const TEST_DURATION_SECONDS = 15 * 60;
 
-const DISPLAY_LETTERS = ["A", "B", "C", "D"];
+const DISPLAY_LETTERS = [
+  "A",
+  "B",
+  "C",
+  "D",
+];
 
 /*
  * Fisher-Yates shuffle.
  */
-function shuffleArray<T>(array: T[]): T[] {
+function shuffleArray<T>(
+  array: T[]
+): T[] {
   const shuffled = [...array];
 
-  for (let i = shuffled.length - 1; i > 0; i--) {
+  for (
+    let i = shuffled.length - 1;
+    i > 0;
+    i--
+  ) {
     const randomIndex = Math.floor(
       Math.random() * (i + 1)
     );
 
-    [shuffled[i], shuffled[randomIndex]] = [
+    [
+      shuffled[i],
+      shuffled[randomIndex],
+    ] = [
       shuffled[randomIndex],
       shuffled[i],
     ];
@@ -55,23 +76,20 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /*
- * Create a balanced sequence of correct-answer positions.
- *
- * For 50 questions this produces:
- * A = 12 or 13
- * B = 12 or 13
- * C = 12 or 13
- * D = 12 or 13
- *
- * The sequence itself is shuffled, so the correct position
- * changes unpredictably from question to question.
+ * Create a balanced sequence of correct-answer
+ * positions so correct answers do not always
+ * appear in the same displayed position.
  */
 function createBalancedCorrectPositions(
   questionCount: number
 ): string[] {
   const positions: string[] = [];
 
-  for (let i = 0; i < questionCount; i++) {
+  for (
+    let i = 0;
+    i < questionCount;
+    i++
+  ) {
     positions.push(
       DISPLAY_LETTERS[
         i % DISPLAY_LETTERS.length
@@ -83,18 +101,15 @@ function createBalancedCorrectPositions(
 }
 
 /*
- * Create shuffled display options for every question.
- *
- * IMPORTANT:
- * displayLetter = what the student sees.
- * originalLetter = the answer letter stored in the database.
- *
- * This means we can shuffle the visual options without
- * breaking backend marking.
+ * Shuffle displayed answer options while keeping
+ * the original database answer letter.
  */
 function createShuffledOptions(
   questions: Question[]
-): Record<number, ShuffledOption[]> {
+): Record<
+  number,
+  ShuffledOption[]
+> {
   const result: Record<
     number,
     ShuffledOption[]
@@ -105,209 +120,263 @@ function createShuffledOptions(
       questions.length
     );
 
-  questions.forEach((question, questionIndex) => {
-    const originalOptions: ShuffledOption[] = [
-      {
-        displayLetter: "",
-        originalLetter: "A",
-        value: question.option_a,
-      },
-      {
-        displayLetter: "",
-        originalLetter: "B",
-        value: question.option_b,
-      },
-      {
-        displayLetter: "",
-        originalLetter: "C",
-        value: question.option_c,
-      },
-      {
-        displayLetter: "",
-        originalLetter: "D",
-        value: question.option_d,
-      },
-    ];
+  questions.forEach(
+    (
+      question,
+      questionIndex
+    ) => {
+      const originalOptions: ShuffledOption[] =
+        [
+          {
+            displayLetter: "",
+            originalLetter: "A",
+            value: question.option_a,
+          },
+          {
+            displayLetter: "",
+            originalLetter: "B",
+            value: question.option_b,
+          },
+          {
+            displayLetter: "",
+            originalLetter: "C",
+            value: question.option_c,
+          },
+          {
+            displayLetter: "",
+            originalLetter: "D",
+            value: question.option_d,
+          },
+        ];
 
-    const correctAnswer = String(
-      question.correct_answer || ""
-    )
-      .trim()
-      .toUpperCase()
-      .replace(/[().\s]/g, "");
+      const rawCorrectAnswer =
+        String(
+          question.correct_answer ||
+            ""
+        ).trim();
 
-    /*
-     * Determine the original correct option.
-     */
-    let originalCorrectLetter = correctAnswer;
+      const normalizedCorrectAnswer =
+        rawCorrectAnswer
+          .toUpperCase()
+          .replace(/[\s().:]/g, "");
 
-    if (
-      !["A", "B", "C", "D"].includes(
-        originalCorrectLetter
-      )
-    ) {
+      let originalCorrectLetter =
+        normalizedCorrectAnswer;
+
       /*
-       * If the backend ever returns the actual option text
-       * instead of A/B/C/D, find the matching original option.
+       * Support databases where correct_answer
+       * contains the actual answer text.
        */
-      const matchingOption =
-        originalOptions.find(
-          (option) =>
-            option.value.trim().toLowerCase() ===
-            String(
-              question.correct_answer || ""
-            )
-              .trim()
-              .toLowerCase()
-        );
-
-      if (matchingOption) {
-        originalCorrectLetter =
-          matchingOption.originalLetter;
-      }
-    }
-
-    const targetCorrectPosition =
-      correctPositions[questionIndex];
-
-    /*
-     * Find the original correct option.
-     */
-    const correctOption =
-      originalOptions.find(
-        (option) =>
-          option.originalLetter ===
+      if (
+        !DISPLAY_LETTERS.includes(
           originalCorrectLetter
-      );
+        )
+      ) {
+        const matchingOption =
+          originalOptions.find(
+            (option) =>
+              option.value
+                .trim()
+                .toLowerCase() ===
+              rawCorrectAnswer
+                .toLowerCase()
+          );
 
-    /*
-     * If for some reason the correct answer is invalid,
-     * fall back to normal random shuffling.
-     */
-    if (!correctOption) {
-      const fallback = shuffleArray(
-        originalOptions
-      ).map((option, index) => ({
-        ...option,
-        displayLetter:
-          DISPLAY_LETTERS[index],
-      }));
-
-      result[question.id] = fallback;
-
-      return;
-    }
-
-    /*
-     * Remove the correct option temporarily.
-     */
-    const distractors = originalOptions.filter(
-      (option) =>
-        option.originalLetter !==
-        originalCorrectLetter
-    );
-
-    /*
-     * Shuffle the three incorrect options.
-     */
-    const shuffledDistractors =
-      shuffleArray(distractors);
-
-    /*
-     * Build the four display positions.
-     *
-     * The correct option is deliberately placed at
-     * targetCorrectPosition.
-     */
-    const finalOptions: ShuffledOption[] =
-      [];
-
-    let distractorIndex = 0;
-
-    DISPLAY_LETTERS.forEach(
-      (displayLetter) => {
-        if (
-          displayLetter ===
-          targetCorrectPosition
-        ) {
-          finalOptions.push({
-            ...correctOption,
-            displayLetter,
-          });
-        } else {
-          const distractor =
-            shuffledDistractors[
-              distractorIndex
-            ];
-
-          distractorIndex++;
-
-          finalOptions.push({
-            ...distractor,
-            displayLetter,
-          });
+        if (matchingOption) {
+          originalCorrectLetter =
+            matchingOption.originalLetter;
         }
       }
-    );
 
-    result[question.id] = finalOptions;
-  });
+      const targetCorrectPosition =
+        correctPositions[
+          questionIndex
+        ];
+
+      const correctOption =
+        originalOptions.find(
+          (option) =>
+            option.originalLetter ===
+            originalCorrectLetter
+        );
+
+      /*
+       * Safety fallback for invalid answer data.
+       */
+      if (!correctOption) {
+        const fallback =
+          shuffleArray(
+            originalOptions
+          ).map(
+            (
+              option,
+              index
+            ) => ({
+              ...option,
+              displayLetter:
+                DISPLAY_LETTERS[
+                  index
+                ],
+            })
+          );
+
+        result[question.id] =
+          fallback;
+
+        return;
+      }
+
+      const distractors =
+        originalOptions.filter(
+          (option) =>
+            option.originalLetter !==
+            originalCorrectLetter
+        );
+
+      const shuffledDistractors =
+        shuffleArray(
+          distractors
+        );
+
+      const finalOptions: ShuffledOption[] =
+        [];
+
+      let distractorIndex = 0;
+
+      DISPLAY_LETTERS.forEach(
+        (displayLetter) => {
+          if (
+            displayLetter ===
+            targetCorrectPosition
+          ) {
+            finalOptions.push({
+              ...correctOption,
+              displayLetter,
+            });
+          } else {
+            const distractor =
+              shuffledDistractors[
+                distractorIndex
+              ];
+
+            distractorIndex++;
+
+            finalOptions.push({
+              ...distractor,
+              displayLetter,
+            });
+          }
+        }
+      );
+
+      result[question.id] =
+        finalOptions;
+    }
+  );
 
   return result;
 }
 
 function CBTTestContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams =
+    useSearchParams();
 
-  const courseId = searchParams.get("courseId");
+  const courseId =
+    searchParams.get(
+      "courseId"
+    );
 
-  const [accessCode, setAccessCode] = useState("");
+  const [accessCode, setAccessCode] =
+    useState("");
+
   const [studentEmail, setStudentEmail] =
     useState("");
-  const [selectedCourseId, setSelectedCourseId] =
-    useState("");
-  const [accessVerified, setAccessVerified] =
-    useState(false);
 
-  const [questions, setQuestions] =
-    useState<Question[]>([]);
+  const [
+    selectedCourseId,
+    setSelectedCourseId,
+  ] = useState("");
 
-  const [answers, setAnswers] =
-    useState<Answer[]>([]);
+  const [
+    accessVerified,
+    setAccessVerified,
+  ] = useState(false);
 
-  /*
-   * Shuffled options are stored separately from
-   * the original question data.
-   *
-   * This is important because the backend still
-   * expects the original A/B/C/D answer.
-   */
-  const [shuffledOptions, setShuffledOptions] =
-    useState<
-      Record<number, ShuffledOption[]>
-    >({});
+  const [
+    questions,
+    setQuestions,
+  ] = useState<Question[]>([]);
 
-  const [currentQuestion, setCurrentQuestion] =
-    useState(0);
+  const [
+    answers,
+    setAnswers,
+  ] = useState<Answer[]>([]);
+
+  const [
+    shuffledOptions,
+    setShuffledOptions,
+  ] = useState<
+    Record<
+      number,
+      ShuffledOption[]
+    >
+  >({});
+
+  const [
+    currentQuestion,
+    setCurrentQuestion,
+  ] = useState(0);
 
   const [loading, setLoading] =
     useState(true);
 
-  const [loadingQuestions, setLoadingQuestions] =
-    useState(false);
+  const [
+    loadingQuestions,
+    setLoadingQuestions,
+  ] = useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
 
-  const [timeLeft, setTimeLeft] = useState(
+  const [
+    timeLeft,
+    setTimeLeft,
+  ] = useState(
     TEST_DURATION_SECONDS
   );
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [
+    submitting,
+    setSubmitting,
+  ] = useState(false);
 
   /*
-   * GET ACCESS CODE, EMAIL AND COURSE
+   * COURSE INFORMATION
+   */
+  const getCourseName = () => {
+    switch (
+      Number(selectedCourseId)
+    ) {
+      case 1:
+        return "GST 112 — The Nigerian People and Culture";
+
+      case 2:
+        return "GST 202 — Philosophy and Logic for Human Existence";
+
+      case 3:
+        return "GST 312 — Venture Creation";
+
+      case 4:
+        return "GST 312 — Peace and Conflict Resolution";
+
+      default:
+        return "CBT Examination";
+    }
+  };
+
+  /*
+   * GET ACCESS INFORMATION
    */
   useEffect(() => {
     const storedAccessCode =
@@ -320,6 +389,11 @@ function CBTTestContent() {
         "cbtStudentEmail"
       );
 
+    const storedCourseId =
+      sessionStorage.getItem(
+        "cbtCourseId"
+      );
+
     if (
       !storedAccessCode ||
       !storedStudentEmail ||
@@ -329,11 +403,37 @@ function CBTTestContent() {
       return;
     }
 
-    setAccessCode(storedAccessCode);
-    setStudentEmail(storedStudentEmail);
-    setSelectedCourseId(courseId);
+    /*
+     * Prevent changing the course ID manually.
+     */
+    if (
+      storedCourseId &&
+      String(
+        storedCourseId
+      ) !==
+        String(courseId)
+    ) {
+      router.replace("/cbt");
+      return;
+    }
+
+    setAccessCode(
+      storedAccessCode
+    );
+
+    setStudentEmail(
+      storedStudentEmail
+    );
+
+    setSelectedCourseId(
+      courseId
+    );
+
     setLoading(false);
-  }, [courseId, router]);
+  }, [
+    courseId,
+    router,
+  ]);
 
   /*
    * VERIFY CBT ACCESS
@@ -347,64 +447,89 @@ function CBTTestContent() {
       return;
     }
 
-    const verifyAccess = async () => {
-      try {
-        setError("");
+    const verifyAccess =
+      async () => {
+        try {
+          setError("");
 
-        const response = await fetch(
-          `${BACKEND_URL}/api/cbt/access/verify`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              access_code: accessCode,
-              email: studentEmail,
-              course: selectedCourseId,
-            }),
+          const response =
+            await fetch(
+              `${BACKEND_URL}/api/cbt/access/verify`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                cache: "no-store",
+                body: JSON.stringify({
+                  access_code:
+                    accessCode,
+
+                  email:
+                    studentEmail,
+
+                  course:
+                    selectedCourseId,
+                }),
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (
+            !response.ok ||
+            !data.success
+          ) {
+            throw new Error(
+              data.message ||
+                "CBT access verification failed."
+            );
           }
-        );
 
-        const data = await response.json();
-
-        if (
-          !response.ok ||
-          !data.success
-        ) {
-          throw new Error(
-            data.message ||
-              "CBT access verification failed."
+          setAccessVerified(
+            true
           );
+        } catch (err) {
+          console.error(
+            "CBT access verification failed:",
+            err
+          );
+
+          sessionStorage.removeItem(
+            "cbtAccessCode"
+          );
+
+          sessionStorage.removeItem(
+            "cbtStudentEmail"
+          );
+
+          sessionStorage.removeItem(
+            "cbtCourseId"
+          );
+
+          sessionStorage.removeItem(
+            "cbtCourse"
+          );
+
+          sessionStorage.removeItem(
+            "cbtVerifiedCourse"
+          );
+
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to verify CBT access."
+          );
+
+          setTimeout(() => {
+            router.replace(
+              "/cbt"
+            );
+          }, 2000);
         }
-
-        setAccessVerified(true);
-      } catch (err) {
-        console.error(
-          "CBT access verification failed:",
-          err
-        );
-
-        sessionStorage.removeItem(
-          "cbtAccessCode"
-        );
-
-        sessionStorage.removeItem(
-          "cbtStudentEmail"
-        );
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to verify CBT access."
-        );
-
-        setTimeout(() => {
-          router.replace("/cbt");
-        }, 2000);
-      }
-    };
+      };
 
     verifyAccess();
   }, [
@@ -415,7 +540,19 @@ function CBTTestContent() {
   ]);
 
   /*
-   * LOAD QUESTIONS
+   * LOAD A FRESH RANDOMIZED QUESTION SET
+   *
+   * IMPORTANT:
+   *
+   * The backend already:
+   *
+   * 1. Gets ALL questions for the course.
+   * 2. Shuffles the entire bank.
+   * 3. Selects 50.
+   *
+   * The cache-busting parameter and
+   * cache: "no-store" ensure this frontend
+   * does not reuse an old response.
    */
   useEffect(() => {
     if (
@@ -427,169 +564,176 @@ function CBTTestContent() {
       return;
     }
 
-    const loadQuestions = async () => {
-      try {
-        setLoadingQuestions(true);
-        setError("");
-
-        const response = await fetch(
-          `${BACKEND_URL}/api/cbt/questions/${selectedCourseId}?limit=50`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type":
-                "application/json",
-              "x-cbt-access-code":
-                accessCode,
-              "x-cbt-email":
-                studentEmail,
-            },
-          }
-        );
-
-        const data = await response.json();
-
-        if (
-          !response.ok ||
-          !data.success
-        ) {
-          throw new Error(
-            data.message ||
-              "Unable to load CBT questions."
-          );
-        }
-
-        const loadedQuestions: Question[] =
-          data.questions || [];
-
-        if (
-          loadedQuestions.length === 0
-        ) {
-          throw new Error(
-            "No CBT questions are available for this course."
-          );
-        }
-
-        /*
-         * Keep the question order supplied by the
-         * backend. The backend already randomizes
-         * the questions.
-         */
-        setQuestions(
-          loadedQuestions
-        );
-
-        /*
-         * SHUFFLE OPTIONS
-         *
-         * Every test attempt receives a fresh
-         * option arrangement.
-         *
-         * Correct answers are distributed across
-         * A/B/C/D instead of being concentrated
-         * in one position.
-         */
-        const newShuffledOptions =
-          createShuffledOptions(
-            loadedQuestions
+    const loadQuestions =
+      async () => {
+        try {
+          setLoadingQuestions(
+            true
           );
 
-        setShuffledOptions(
-          newShuffledOptions
-        );
+          setError("");
 
-        /*
-         * Every question starts unanswered.
-         *
-         * We deliberately do not restore previous
-         * answers.
-         */
-        const initialAnswers: Answer[] =
-          loadedQuestions.map(
-            (question) => ({
-              question_id: question.id,
-              answer: "",
-            })
+          /*
+           * Clear the previous test's
+           * temporary question/answer data.
+           *
+           * This makes sure an old set of
+           * 50 questions is never reused
+           * as the current test.
+           */
+          sessionStorage.removeItem(
+            "cbtQuestions"
           );
 
-        setAnswers(
-          initialAnswers
-        );
-
-        setCurrentQuestion(0);
-
-        /*
-         * TIMER
-         *
-         * Continue the current test after
-         * a refresh.
-         */
-        const existingStartTime =
-          sessionStorage.getItem(
-            "cbtStartTime"
+          sessionStorage.removeItem(
+            "cbtAnswers"
           );
 
-        if (existingStartTime) {
-          const startTime = Number(
-            existingStartTime
+          sessionStorage.removeItem(
+            "cbtReview"
           );
 
-          if (
-            Number.isFinite(startTime) &&
-            startTime > 0
-          ) {
-            const elapsed =
-              Math.floor(
-                (Date.now() -
-                  startTime) /
-                  1000
-              );
+          sessionStorage.removeItem(
+            "cbtResult"
+          );
 
-            const remaining =
-              TEST_DURATION_SECONDS -
-              elapsed;
+          /*
+           * Start this fresh attempt
+           * with a fresh 15-minute timer.
+           */
+          const newStartTime =
+            Date.now();
 
-            setTimeLeft(
-              Math.max(
-                remaining,
-                0
-              )
-            );
-          } else {
-            sessionStorage.setItem(
-              "cbtStartTime",
-              Date.now().toString()
-            );
-
-            setTimeLeft(
-              TEST_DURATION_SECONDS
-            );
-          }
-        } else {
           sessionStorage.setItem(
             "cbtStartTime",
-            Date.now().toString()
+            newStartTime.toString()
           );
 
           setTimeLeft(
             TEST_DURATION_SECONDS
           );
-        }
-      } catch (err) {
-        console.error(
-          "Unable to load CBT questions:",
-          err
-        );
 
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load CBT questions."
-        );
-      } finally {
-        setLoadingQuestions(false);
-      }
-    };
+          /*
+           * Date.now() creates a unique
+           * cache-busting value.
+           *
+           * This prevents an old 50-question
+           * response from being reused.
+           */
+          const cacheBuster =
+            Date.now();
+
+          const response =
+            await fetch(
+              `${BACKEND_URL}/api/cbt/questions/${selectedCourseId}?limit=50&_=${cacheBuster}`,
+              {
+                method: "GET",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+
+                  "x-cbt-access-code":
+                    accessCode,
+
+                  "x-cbt-email":
+                    studentEmail,
+                },
+
+                /*
+                 * Never use a cached question set.
+                 */
+                cache: "no-store",
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (
+            !response.ok ||
+            !data.success
+          ) {
+            throw new Error(
+              data.message ||
+                "Unable to load CBT questions."
+            );
+          }
+
+          const loadedQuestions:
+            Question[] =
+            data.questions || [];
+
+          if (
+            loadedQuestions.length ===
+            0
+          ) {
+            throw new Error(
+              "No CBT questions are available for this course."
+            );
+          }
+
+          /*
+           * The backend has already
+           * randomized the complete bank
+           * before selecting these questions.
+           */
+          setQuestions(
+            loadedQuestions
+          );
+
+          /*
+           * Shuffle the displayed answer
+           * positions separately.
+           */
+          const newShuffledOptions =
+            createShuffledOptions(
+              loadedQuestions
+            );
+
+          setShuffledOptions(
+            newShuffledOptions
+          );
+
+          /*
+           * Every new test starts
+           * with unanswered questions.
+           */
+          const initialAnswers:
+            Answer[] =
+            loadedQuestions.map(
+              (question) => ({
+                question_id:
+                  question.id,
+
+                answer: "",
+              })
+            );
+
+          setAnswers(
+            initialAnswers
+          );
+
+          setCurrentQuestion(
+            0
+          );
+        } catch (err) {
+          console.error(
+            "Unable to load CBT questions:",
+            err
+          );
+
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load CBT questions."
+          );
+        } finally {
+          setLoadingQuestions(
+            false
+          );
+        }
+      };
 
     loadQuestions();
   }, [
@@ -615,14 +759,15 @@ function CBTTestContent() {
       return;
     }
 
-    const timer = setInterval(() => {
-      setTimeLeft(
-        (previous) =>
-          previous > 0
-            ? previous - 1
-            : 0
-      );
-    }, 1000);
+    const timer =
+      setInterval(() => {
+        setTimeLeft(
+          (previous) =>
+            previous > 0
+              ? previous - 1
+              : 0
+        );
+      }, 1000);
 
     return () =>
       clearInterval(timer);
@@ -659,7 +804,9 @@ function CBTTestContent() {
     seconds: number
   ) => {
     const minutes =
-      Math.floor(seconds / 60);
+      Math.floor(
+        seconds / 60
+      );
 
     const remainingSeconds =
       seconds % 60;
@@ -682,23 +829,10 @@ function CBTTestContent() {
    *
    * IMPORTANT:
    *
-   * The student clicks the DISPLAYED letter.
+   * The displayed letter is NOT sent
+   * to the backend.
    *
-   * But we save the ORIGINAL database letter.
-   *
-   * Example:
-   *
-   * Database:
-   * A = Abuja
-   *
-   * Student sees:
-   * B = Abuja
-   *
-   * We save:
-   * A
-   *
-   * Therefore the existing backend marking
-   * remains correct.
+   * The original database letter is sent.
    */
   const handleAnswer = (
     displayLetter: string
@@ -740,11 +874,6 @@ function CBTTestContent() {
             questionId
               ? {
                   ...item,
-
-                  /*
-                   * SAVE ORIGINAL LETTER,
-                   * NOT DISPLAY LETTER.
-                   */
                   answer:
                     selectedOption.originalLetter,
                 }
@@ -754,50 +883,52 @@ function CBTTestContent() {
   };
 
   /*
-   * GET CURRENT ANSWER
-   *
-   * Returns the ORIGINAL database letter.
+   * GET ORIGINAL DATABASE ANSWER
    */
-  const getCurrentAnswer = () => {
-    if (
-      !questions[currentQuestion]
-    ) {
-      return "";
-    }
+  const getCurrentAnswer =
+    () => {
+      if (
+        !questions[
+          currentQuestion
+        ]
+      ) {
+        return "";
+      }
 
-    const questionId =
-      questions[currentQuestion].id;
+      const questionId =
+        questions[
+          currentQuestion
+        ].id;
 
-    const answer =
-      answers.find(
-        (item) =>
-          item.question_id ===
-          questionId
+      const answer =
+        answers.find(
+          (item) =>
+            item.question_id ===
+            questionId
+        );
+
+      return (
+        answer?.answer || ""
       );
-
-    return (
-      answer?.answer || ""
-    );
-  };
+    };
 
   /*
-   * DETERMINE WHICH DISPLAY OPTION IS
-   * CURRENTLY SELECTED.
-   *
-   * Because answers are stored using the
-   * original database letter, we convert
-   * that back to the displayed letter.
+   * GET DISPLAYED ANSWER
    */
   const getCurrentDisplayedAnswer =
     () => {
       if (
-        !questions[currentQuestion]
+        !questions[
+          currentQuestion
+        ]
       ) {
         return "";
       }
 
       const question =
-        questions[currentQuestion];
+        questions[
+          currentQuestion
+        ];
 
       const originalAnswer =
         getCurrentAnswer();
@@ -827,176 +958,183 @@ function CBTTestContent() {
   /*
    * SUBMIT CBT
    */
-  const handleSubmit = async () => {
-    if (submitting) {
-      return;
-    }
-
-    if (
-      !accessCode ||
-      !studentEmail ||
-      !selectedCourseId ||
-      questions.length === 0
-    ) {
-      setError(
-        "Unable to submit the CBT. Please try again."
-      );
-
-      return;
-    }
-
-    setSubmitting(true);
-    setError("");
-
-    try {
-      const response =
-        await fetch(
-          `${BACKEND_URL}/api/cbt/submit`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              access_code:
-                accessCode,
-
-              email:
-                studentEmail,
-
-              course_id:
-                Number(
-                  selectedCourseId
-                ),
-
-              /*
-               * These are ORIGINAL database
-               * answer letters.
-               *
-               * The backend can therefore
-               * continue using its existing
-               * marking system.
-               */
-              answers:
-                answers.map(
-                  (item) => ({
-                    question_id:
-                      Number(
-                        item.question_id
-                      ),
-
-                    answer:
-                      item.answer ||
-                      "",
-                  })
-                ),
-            }),
-          }
-        );
-
-      const data =
-        await response.json();
-
-      console.log(
-        "CBT SUBMISSION RESPONSE:",
-        data
-      );
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-        throw new Error(
-          data.message ||
-            "Unable to submit CBT."
-        );
+  const handleSubmit =
+    async () => {
+      if (submitting) {
+        return;
       }
 
-      /*
-       * SAVE RESULT
-       */
-      const result = {
-        score:
-          data.score ?? 0,
+      if (
+        !accessCode ||
+        !studentEmail ||
+        !selectedCourseId ||
+        questions.length === 0
+      ) {
+        setError(
+          "Unable to submit the CBT. Please try again."
+        );
 
-        total_questions:
-          data.total_questions ??
-          questions.length,
+        return;
+      }
 
-        percentage:
-          data.percentage ?? 0,
+      setSubmitting(true);
+      setError("");
 
-        courseId:
-          selectedCourseId,
+      try {
+        const response =
+          await fetch(
+            `${BACKEND_URL}/api/cbt/submit`,
+            {
+              method: "POST",
 
-        completedAt:
-          new Date().toISOString(),
-      };
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-      sessionStorage.setItem(
-        "cbtResult",
-        JSON.stringify(result)
-      );
+              body: JSON.stringify({
+                access_code:
+                  accessCode,
 
-      /*
-       * SAVE QUESTIONS
-       */
-      sessionStorage.setItem(
-        "cbtQuestions",
-        JSON.stringify(
-          questions
-        )
-      );
+                email:
+                  studentEmail,
 
-      /*
-       * SAVE STUDENT ANSWERS
-       */
-      sessionStorage.setItem(
-        "cbtAnswers",
-        JSON.stringify(
-          answers
-        )
-      );
+                course_id:
+                  Number(
+                    selectedCourseId
+                  ),
 
-      /*
-       * SAVE BACKEND REVIEW
-       */
-      sessionStorage.setItem(
-        "cbtReview",
-        JSON.stringify(
-          data.review || []
-        )
-      );
+                answers:
+                  answers.map(
+                    (item) => ({
+                      question_id:
+                        Number(
+                          item.question_id
+                        ),
 
-      /*
-       * REMOVE TIMER
-       */
-      sessionStorage.removeItem(
-        "cbtStartTime"
-      );
+                      answer:
+                        item.answer ||
+                        "",
+                    })
+                  ),
+              }),
+            }
+          );
 
-      /*
-       * GO TO RESULT PAGE
-       */
-      router.replace(
-        `/cbt/result?courseId=${selectedCourseId}`
-      );
-    } catch (err) {
-      console.error(
-        "CBT submission failed:",
-        err
-      );
+        const data =
+          await response.json();
 
-      setSubmitting(false);
+        console.log(
+          "CBT SUBMISSION RESPONSE:",
+          data
+        );
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to submit your CBT. Please try again."
-      );
-    }
-  };
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+          throw new Error(
+            data.message ||
+              "Unable to submit CBT."
+          );
+        }
+
+        /*
+         * SAVE RESULT
+         */
+        const result = {
+          score:
+            data.score ?? 0,
+
+          total_questions:
+            data.total_questions ??
+            questions.length,
+
+          percentage:
+            data.percentage ?? 0,
+
+          courseId:
+            selectedCourseId,
+
+          completedAt:
+            new Date().toISOString(),
+        };
+
+        sessionStorage.setItem(
+          "cbtResult",
+          JSON.stringify(
+            result
+          )
+        );
+
+        /*
+         * Save the questions used
+         * in this particular attempt.
+         */
+        sessionStorage.setItem(
+          "cbtQuestions",
+          JSON.stringify(
+            questions
+          )
+        );
+
+        /*
+         * Save student's answers.
+         */
+        sessionStorage.setItem(
+          "cbtAnswers",
+          JSON.stringify(
+            answers
+          )
+        );
+
+        /*
+         * SAVE BACKEND REVIEW.
+         *
+         * This contains:
+         *
+         * - question
+         * - student's answer
+         * - correct answer
+         * - correct answer text
+         * - whether the answer was correct
+         * - explanation
+         */
+        sessionStorage.setItem(
+          "cbtReview",
+          JSON.stringify(
+            data.review || []
+          )
+        );
+
+        /*
+         * Remove active timer.
+         */
+        sessionStorage.removeItem(
+          "cbtStartTime"
+        );
+
+        /*
+         * Go to result page.
+         */
+        router.replace(
+          `/cbt/result?courseId=${selectedCourseId}`
+        );
+      } catch (err) {
+        console.error(
+          "CBT submission failed:",
+          err
+        );
+
+        setSubmitting(false);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to submit your CBT. Please try again."
+        );
+      }
+    };
 
   /*
    * NEXT QUESTION
@@ -1113,26 +1251,11 @@ function CBTTestContent() {
   const question =
     questions[currentQuestion];
 
-  /*
-   * These are the shuffled options for the
-   * current question.
-   */
   const options =
     shuffledOptions[
       question.id
     ] || [];
 
-  /*
-   * This is the ORIGINAL answer letter
-   * stored internally.
-   */
-  const currentAnswer =
-    getCurrentAnswer();
-
-  /*
-   * This is the DISPLAYED answer letter
-   * the student currently sees selected.
-   */
   const currentDisplayedAnswer =
     getCurrentDisplayedAnswer();
 
@@ -1152,7 +1275,8 @@ function CBTTestContent() {
     questions.length - 1;
 
   const timerWarning =
-    timeLeft <= 5 * 60;
+    timeLeft <=
+    5 * 60;
 
   /*
    * CBT INTERFACE
@@ -1162,7 +1286,7 @@ function CBTTestContent() {
       <header className="sticky top-0 z-20 border-b border-[#2B2022]/10 bg-white/95 backdrop-blur">
         <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
           <div className="flex items-center justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#A65D6F]">
                 CAMPUS LEARNING HUB
               </p>
@@ -1170,10 +1294,14 @@ function CBTTestContent() {
               <h1 className="mt-1 text-lg font-bold text-[#2B2022] sm:text-xl">
                 CBT Examination
               </h1>
+
+              <p className="mt-1 max-w-xl truncate text-xs font-medium text-[#6B2638] sm:text-sm">
+                {getCourseName()}
+              </p>
             </div>
 
             <div
-              className={`rounded-xl border px-4 py-2 text-center ${
+              className={`shrink-0 rounded-xl border px-4 py-2 text-center ${
                 timerWarning
                   ? "border-red-200 bg-red-50 text-red-700"
                   : "border-[#C89B5D]/30 bg-[#C89B5D]/10 text-[#6B2638]"
@@ -1243,11 +1371,6 @@ function CBTTestContent() {
           <div className="space-y-3">
             {options.map(
               (option) => {
-                /*
-                 * Compare using the DISPLAYED
-                 * letter, because this is what
-                 * the student sees.
-                 */
                 const selected =
                   currentDisplayedAnswer ===
                   option.displayLetter;
