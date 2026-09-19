@@ -18,18 +18,21 @@ export default function Home() {
             >
               Features
             </a>
+
             <a
               href="#how-it-works"
               className="text-sm text-slate-300 hover:text-white"
             >
               How it works
             </a>
+
             <a
               href="#pricing"
               className="text-sm text-slate-300 hover:text-white"
             >
               Pricing
             </a>
+
             <a
               href="/cbt"
               className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-slate-950"
@@ -89,6 +92,7 @@ export default function Home() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
                 <p className="text-sm text-slate-400">AI Assistant</p>
+
                 <p className="mt-2 text-lg font-semibold">
                   Academic assistance
                 </p>
@@ -100,6 +104,7 @@ export default function Home() {
 
               <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
                 <p className="text-sm text-slate-400">CBT Practice</p>
+
                 <p className="mt-2 text-lg font-semibold">
                   Test your knowledge and boost your confidence.
                 </p>
@@ -266,9 +271,7 @@ export default function Home() {
             <div className="rounded-3xl border border-white/10 bg-slate-950 p-7">
               <h3 className="text-xl font-bold">AI Weekly</h3>
 
-              <p className="mt-5 text-4xl font-bold">₦500</p>
-
-              <p className="mt-4 min-h-12 text-slate-400">
+              <p className="mt-5 min-h-12 text-slate-400">
                 7 days of AI academic assistance.
               </p>
 
@@ -281,9 +284,7 @@ export default function Home() {
             <div className="rounded-3xl border border-white/10 bg-slate-950 p-7">
               <h3 className="text-xl font-bold">AI Semester</h3>
 
-              <p className="mt-5 text-4xl font-bold">₦1,000</p>
-
-              <p className="mt-4 min-h-12 text-slate-400">
+              <p className="mt-5 min-h-12 text-slate-400">
                 AI academic assistance for the semester.
               </p>
 
@@ -337,48 +338,50 @@ export default function Home() {
           <p>© 2026 CAMPUS LEARNING HUB. All rights reserved.</p>
           <p>Learn smarter. Prepare better.</p>
         </div>
-              {/* WhatsApp Community */}
-      <section className="border-t border-white/10 bg-slate-900/50">
-        <div className="mx-auto max-w-4xl px-6 py-16 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
-            <svg
-              viewBox="0 0 24 24"
-              className="h-9 w-9 text-green-400"
-              fill="currentColor"
-              aria-hidden="true"
+
+        {/* WhatsApp Community */}
+        <section className="border-t border-white/10 bg-slate-900/50">
+          <div className="mx-auto max-w-4xl px-6 py-16 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-9 w-9 text-green-400"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M20.52 3.48A11.79 11.79 0 0 0 12.06 0C5.53.0.22 5.31.22 11.84c0 2.09.55 4.13 1.59 5.93L.13 24l6.37-1.67a11.8 11.8 0 0 0 5.56 1.41h.01c6.53 0 11.84-5.31 11.84-11.84 0-3.17-1.23-6.14-3.39-8.42ZM12.07 21.8h-.01a9.82 9.82 0 0 1-5.01-1.37l-.36-.21-3.78.99 1.01-3.68-.23-.38a9.82 9.82 0 1 1 8.38 4.65Zm5.39-7.36c-.29-.15-1.72-.85-1.99-.95-.27-.1-.46-.15-.65.15-.19.29-.75.95-.92 1.14-.17.19-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.77-1.44-1.72-1.61-2.01-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.65-1.58-.89-2.17-.23-.57-.47-.5-.65-.51h-.56c-.19 0-.51.07-.78.36-.27.29-1.02 1-1.02 2.43s1.04 2.82 1.19 3.01c.15.19 2.04 3.12 4.94 4.37.69.3 1.23.48 1.65.61.69.22 1.32.19 1.82.12.55-.08 1.72-.7 1.96-1.37.24-.67.24-1.24.17-1.37-.07-.12-.27-.19-.56-.34Z" />
+              </svg>
+            </div>
+
+            <h2 className="mt-6 text-2xl font-bold md:text-3xl">
+              Join our WhatsApp Support Community
+            </h2>
+
+            <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-400">
+              Join our WhatsApp support community for more updates,
+              announcements, and support from CAMPUS LEARNING HUB.
+            </p>
+
+            <a
+              href="https://chat.whatsapp.com/Fuc0t8KU2MTFfMi58PvBuc?s=cl&p=a&mlu=4&ilr=4"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-7 inline-flex items-center gap-2 rounded-xl bg-green-500 px-6 py-3.5 font-semibold text-slate-950 transition hover:bg-green-400"
             >
-              <path d="M20.52 3.48A11.79 11.79 0 0 0 12.06 0C5.53 0 .22 5.31.22 11.84c0 2.09.55 4.13 1.59 5.93L.13 24l6.37-1.67a11.8 11.8 0 0 0 5.56 1.41h.01c6.53 0 11.84-5.31 11.84-11.84 0-3.17-1.23-6.14-3.39-8.42ZM12.07 21.8h-.01a9.82 9.82 0 0 1-5.01-1.37l-.36-.21-3.78.99 1.01-3.68-.23-.38a9.82 9.82 0 1 1 8.38 4.65Zm5.39-7.36c-.29-.15-1.72-.85-1.99-.95-.27-.1-.46-.15-.65.15-.19.29-.75.95-.92 1.14-.17.19-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.77-1.44-1.72-1.61-2.01-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.65-1.58-.89-2.17-.23-.57-.47-.5-.65-.51h-.56c-.19 0-.51.07-.78.36-.27.29-1.02 1-1.02 2.43s1.04 2.82 1.19 3.01c.15.19 2.04 3.12 4.94 4.37.69.3 1.23.48 1.65.61.69.22 1.32.19 1.82.12.55-.08 1.72-.7 1.96-1.37.24-.67.24-1.24.17-1.37-.07-.12-.27-.19-.56-.34Z" />
-            </svg>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M20.52 3.48A11.79 11.79 0 0 0 12.06 0C5.53 0 .22 5.31.22 11.84c0 2.09.55 4.13 1.59 5.93L.13 24l6.37-1.67a11.8 11.8 0 0 0 5.56 1.41h.01c6.53 0 11.84-5.31 11.84-11.84 0-3.17-1.23-6.14-3.39-8.42ZM12.07 21.8h-.01a9.82 9.82 0 0 1-5.01-1.37l-.36-.21-3.78.99 1.01-3.68-.23-.38a9.82 9.82 0 1 1 8.38 4.65Zm5.39-7.36c-.29-.15-1.72-.85-1.99-.95-.27-.1-.46-.15-.65.15-.19.29-.75.95-.92 1.14-.17.19-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.77-1.44-1.72-1.61-2.01-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.65-1.58-.89-2.17-.23-.57-.47-.5-.65-.51h-.56c-.19 0-.51.07-.78.36-.27.29-1.02 1-1.02 2.43s1.04 2.82 1.19 3.01c.15.19 2.04 3.12 4.94 4.37.69.3 1.23.48 1.65.61.69.22 1.32.19 1.82.12.55-.08 1.72-.7 1.96-1.37.24-.67.24-1.24.17-1.37-.07-.12-.27-.19-.56-.34Z" />
+              </svg>
+
+              Join WhatsApp Community
+            </a>
           </div>
-
-          <h2 className="mt-6 text-2xl font-bold md:text-3xl">
-            Join our WhatsApp Support Community
-          </h2>
-
-          <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-400">
-            Join our WhatsApp support community for more updates,
-            announcements, and support from CAMPUS LEARNING HUB.
-          </p>
-
-          <a
-            href="https://chat.whatsapp.com/Fuc0t8KU2MTFfMi58PvBuc?s=cl&p=a&mlu=4&ilr=4"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-7 inline-flex items-center gap-2 rounded-xl bg-green-500 px-6 py-3.5 font-semibold text-slate-950 transition hover:bg-green-400"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M20.52 3.48A11.79 11.79 0 0 0 12.06 0C5.53 0 .22 5.31.22 11.84c0 2.09.55 4.13 1.59 5.93L.13 24l6.37-1.67a11.8 11.8 0 0 0 5.56 1.41h.01c6.53 0 11.84-5.31 11.84-11.84 0-3.17-1.23-6.14-3.39-8.42ZM12.07 21.8h-.01a9.82 9.82 0 0 1-5.01-1.37l-.36-.21-3.78.99 1.01-3.68-.23-.38a9.82 9.82 0 1 1 8.38 4.65Zm5.39-7.36c-.29-.15-1.72-.85-1.99-.95-.27-.1-.46-.15-.65.15-.19.29-.75.95-.92 1.14-.17.19-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.77-1.44-1.72-1.61-2.01-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.65-1.58-.89-2.17-.23-.57-.47-.5-.65-.51h-.56c-.19 0-.51.07-.78.36-.27.29-1.02 1-1.02 2.43s1.04 2.82 1.19 3.01c.15.19 2.04 3.12 4.94 4.37.69.3 1.23.48 1.65.61.69.22 1.32.19 1.82.12.55-.08 1.72-.7 1.96-1.37.24-.67.24-1.24.17-1.37-.07-.12-.27-.19-.56-.34Z" />
-            </svg>
-            Join WhatsApp Community
-          </a>
-        </div>
-      </section>
+        </section>
       </footer>
     </main>
   );
- }
+}
