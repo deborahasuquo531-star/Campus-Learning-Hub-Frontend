@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const courses = [
+   const courses = [
   {
     id: 1,
     code: "GST 112",
@@ -31,6 +31,13 @@ const courses = [
     title: "Peace and Conflict Resolution",
     description:
       "Test your understanding of conflict, peacebuilding, conflict management, resolution approaches, negotiation, mediation, and related topics.",
+  },
+  {
+    id: 5,
+    code: "AMS 104",
+    title: "Project Management",
+    description:
+      "Test your understanding of project planning, project management principles, costing, budgeting, implementation, monitoring, evaluation, and related topics.",
   },
 ];
 

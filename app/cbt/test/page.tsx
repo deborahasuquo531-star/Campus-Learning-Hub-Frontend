@@ -76,26 +76,29 @@ function shuffleArray<T>(
 }
 
 /*
- * Create a balanced sequence of correct-answer
- * positions so correct answers do not always
- * appear in the same displayed position.
+ * Create balanced correct-answer positions.
+ *
+ * 4-option questions use A/B/C/D.
+ * 3-option questions use A/B/C only.
  */
 function createBalancedCorrectPositions(
-  questionCount: number
+  questions: Question[]
 ): string[] {
   const positions: string[] = [];
 
-  for (
-    let i = 0;
-    i < questionCount;
-    i++
-  ) {
+  questions.forEach((question) => {
+    const availableLetters =
+      question.option_d?.trim()
+        ? DISPLAY_LETTERS
+        : ["A", "B", "C"];
+
     positions.push(
-      DISPLAY_LETTERS[
-        i % DISPLAY_LETTERS.length
+      availableLetters[
+        positions.length %
+          availableLetters.length
       ]
     );
-  }
+  });
 
   return shuffleArray(positions);
 }
@@ -103,6 +106,11 @@ function createBalancedCorrectPositions(
 /*
  * Shuffle displayed answer options while keeping
  * the original database answer letter.
+ *
+ * Important:
+ * The displayed letter is only for the student.
+ * The original database letter is what gets sent
+ * to the backend for marking.
  */
 function createShuffledOptions(
   questions: Question[]
@@ -117,7 +125,7 @@ function createShuffledOptions(
 
   const correctPositions =
     createBalancedCorrectPositions(
-      questions.length
+      questions
     );
 
   questions.forEach(
@@ -125,29 +133,38 @@ function createShuffledOptions(
       question,
       questionIndex
     ) => {
-      const originalOptions: ShuffledOption[] =
-        [
-          {
-            displayLetter: "",
-            originalLetter: "A",
-            value: question.option_a,
-          },
-          {
-            displayLetter: "",
-            originalLetter: "B",
-            value: question.option_b,
-          },
-          {
-            displayLetter: "",
-            originalLetter: "C",
-            value: question.option_c,
-          },
-          {
-            displayLetter: "",
-            originalLetter: "D",
-            value: question.option_d,
-          },
-        ];
+      /*
+       * Build only the options that actually exist.
+       *
+       * If option D is empty, only A/B/C
+       * will be created.
+       */
+      const originalOptions: ShuffledOption[] = [
+        {
+          displayLetter: "",
+          originalLetter: "A",
+          value: question.option_a,
+        },
+        {
+          displayLetter: "",
+          originalLetter: "B",
+          value: question.option_b,
+        },
+        {
+          displayLetter: "",
+          originalLetter: "C",
+          value: question.option_c,
+        },
+        ...(question.option_d?.trim()
+          ? [
+              {
+                displayLetter: "",
+                originalLetter: "D",
+                value: question.option_d,
+              },
+            ]
+          : []),
+      ];
 
       const rawCorrectAnswer =
         String(
@@ -204,6 +221,11 @@ function createShuffledOptions(
        * Safety fallback for invalid answer data.
        */
       if (!correctOption) {
+        const fallbackLetters =
+          originalOptions.length === 3
+            ? ["A", "B", "C"]
+            : DISPLAY_LETTERS;
+
         const fallback =
           shuffleArray(
             originalOptions
@@ -214,7 +236,7 @@ function createShuffledOptions(
             ) => ({
               ...option,
               displayLetter:
-                DISPLAY_LETTERS[
+                fallbackLetters[
                   index
                 ],
             })
@@ -226,6 +248,10 @@ function createShuffledOptions(
         return;
       }
 
+      /*
+       * Remove the correct answer from the
+       * distractor pool.
+       */
       const distractors =
         originalOptions.filter(
           (option) =>
@@ -243,7 +269,19 @@ function createShuffledOptions(
 
       let distractorIndex = 0;
 
-      DISPLAY_LETTERS.forEach(
+      /*
+       * 3-option questions:
+       * A, B, C only.
+       *
+       * 4-option questions:
+       * A, B, C, D.
+       */
+      const displayLetters =
+        originalOptions.length === 3
+          ? ["A", "B", "C"]
+          : DISPLAY_LETTERS;
+
+      displayLetters.forEach(
         (displayLetter) => {
           if (
             displayLetter ===
@@ -261,10 +299,12 @@ function createShuffledOptions(
 
             distractorIndex++;
 
-            finalOptions.push({
-              ...distractor,
-              displayLetter,
-            });
+            if (distractor) {
+              finalOptions.push({
+                ...distractor,
+                displayLetter,
+              });
+            }
           }
         }
       );
@@ -279,6 +319,7 @@ function createShuffledOptions(
 
 function CBTTestContent() {
   const router = useRouter();
+
   const searchParams =
     useSearchParams();
 
@@ -370,6 +411,9 @@ function CBTTestContent() {
       case 4:
         return "GST 312 — Peace and Conflict Resolution";
 
+      case 5:
+        return "AMS 104 — Project Management";
+
       default:
         return "CBT Examination";
     }
@@ -457,11 +501,14 @@ function CBTTestContent() {
               `${BACKEND_URL}/api/cbt/access/verify`,
               {
                 method: "POST",
+
                 headers: {
                   "Content-Type":
                     "application/json",
                 },
+
                 cache: "no-store",
+
                 body: JSON.stringify({
                   access_code:
                     accessCode,
@@ -541,18 +588,6 @@ function CBTTestContent() {
 
   /*
    * LOAD A FRESH RANDOMIZED QUESTION SET
-   *
-   * IMPORTANT:
-   *
-   * The backend already:
-   *
-   * 1. Gets ALL questions for the course.
-   * 2. Shuffles the entire bank.
-   * 3. Selects 50.
-   *
-   * The cache-busting parameter and
-   * cache: "no-store" ensure this frontend
-   * does not reuse an old response.
    */
   useEffect(() => {
     if (
@@ -574,12 +609,7 @@ function CBTTestContent() {
           setError("");
 
           /*
-           * Clear the previous test's
-           * temporary question/answer data.
-           *
-           * This makes sure an old set of
-           * 50 questions is never reused
-           * as the current test.
+           * Clear previous temporary data.
            */
           sessionStorage.removeItem(
             "cbtQuestions"
@@ -598,8 +628,7 @@ function CBTTestContent() {
           );
 
           /*
-           * Start this fresh attempt
-           * with a fresh 15-minute timer.
+           * Start a fresh 15-minute timer.
            */
           const newStartTime =
             Date.now();
@@ -614,11 +643,7 @@ function CBTTestContent() {
           );
 
           /*
-           * Date.now() creates a unique
-           * cache-busting value.
-           *
-           * This prevents an old 50-question
-           * response from being reused.
+           * Cache-busting value.
            */
           const cacheBuster =
             Date.now();
@@ -640,9 +665,6 @@ function CBTTestContent() {
                     studentEmail,
                 },
 
-                /*
-                 * Never use a cached question set.
-                 */
                 cache: "no-store",
               }
             );
@@ -673,17 +695,12 @@ function CBTTestContent() {
             );
           }
 
-          /*
-           * The backend has already
-           * randomized the complete bank
-           * before selecting these questions.
-           */
           setQuestions(
             loadedQuestions
           );
 
           /*
-           * Shuffle the displayed answer
+           * Shuffle displayed answer
            * positions separately.
            */
           const newShuffledOptions =
@@ -696,8 +713,7 @@ function CBTTestContent() {
           );
 
           /*
-           * Every new test starts
-           * with unanswered questions.
+           * Start with unanswered questions.
            */
           const initialAnswers:
             Answer[] =
@@ -826,13 +842,6 @@ function CBTTestContent() {
 
   /*
    * SELECT ANSWER
-   *
-   * IMPORTANT:
-   *
-   * The displayed letter is NOT sent
-   * to the backend.
-   *
-   * The original database letter is sent.
    */
   const handleAnswer = (
     displayLetter: string
@@ -1068,8 +1077,8 @@ function CBTTestContent() {
         );
 
         /*
-         * Save the questions used
-         * in this particular attempt.
+         * Save questions used
+         * in this attempt.
          */
         sessionStorage.setItem(
           "cbtQuestions",
@@ -1089,16 +1098,7 @@ function CBTTestContent() {
         );
 
         /*
-         * SAVE BACKEND REVIEW.
-         *
-         * This contains:
-         *
-         * - question
-         * - student's answer
-         * - correct answer
-         * - correct answer text
-         * - whether the answer was correct
-         * - explanation
+         * Save backend review.
          */
         sessionStorage.setItem(
           "cbtReview",

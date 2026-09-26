@@ -27,6 +27,11 @@ const courses = [
     code: "GST312",
     name: "GST 312 — Peace and Conflict Resolution",
   },
+    {
+  id: 5,
+  code: "AMS104",
+  name: "AMS 104 — Project Management",
+},
 ];
 
 type PaymentStatus =
