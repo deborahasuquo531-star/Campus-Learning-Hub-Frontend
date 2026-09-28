@@ -39,6 +39,13 @@ import { useEffect, useState } from "react";
     description:
       "Test your understanding of project planning, project management principles, costing, budgeting, implementation, monitoring, evaluation, and related topics.",
   },
+  {
+    id: 6,
+    code: "MKT 326",
+    title: "Sales Management",
+    description:
+      "Test your understanding of sales management, selling processes, sales planning, sales force management, customer relationships, and related topics.",
+  },
 ];
 
 const API_URL = "https://learning-made-easy-backend.vercel.app";
