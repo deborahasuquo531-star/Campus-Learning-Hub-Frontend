@@ -32,7 +32,13 @@ const courses = [
   code: "AMS104",
   name: "AMS 104 — Project Management",
 },
+{
+  id: 6,
+  code: "MKT326",
+  name: "MKT 326 - Sales Management",
+  },
 ];
+
 
 type PaymentStatus =
   | "form"
