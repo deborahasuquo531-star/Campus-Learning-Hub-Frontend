@@ -37,6 +37,16 @@ const courses = [
   code: "MKT326",
   name: "MKT 326 - Sales Management",
   },
+  {
+    id: 7,
+    code: "ECO 102",
+    name: "ECO 102 - Principles of Economics II",
+  },
+  {
+    id: 8,
+    code: "MKT 112",
+    name: "MKT 112 - Principles of Selling",
+  },
 ];
 
 

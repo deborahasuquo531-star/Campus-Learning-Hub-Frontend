@@ -46,6 +46,20 @@ import { useEffect, useState } from "react";
     description:
       "Test your understanding of sales management, selling processes, sales planning, sales force management, customer relationships, and related topics.",
   },
+  {
+    id: 7,
+    code: "ECO 102",
+    title: "Principles of Economics II",
+    description:
+      "Practice your understanding of economic principles, concepts, theories, and applications.",
+  },
+  {
+    id: 8,
+    code: "MKT 112",
+    title: "Principles of Selling",
+    description:
+      "Practice selling concepts, sales processes, sales force management, and theories of selling.",
+  },
 ];
 
 const API_URL = "https://learning-made-easy-backend.vercel.app";
