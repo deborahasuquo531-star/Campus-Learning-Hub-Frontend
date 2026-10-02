@@ -27,15 +27,15 @@ const courses = [
     code: "GST312",
     name: "GST 312 — Peace and Conflict Resolution",
   },
-    {
-  id: 5,
-  code: "AMS104",
-  name: "AMS 104 — Project Management",
-},
-{
-  id: 6,
-  code: "MKT326",
-  name: "MKT 326 - Sales Management",
+  {
+    id: 5,
+    code: "AMS104",
+    name: "AMS 104 — Project Management",
+  },
+  {
+    id: 6,
+    code: "MKT326",
+    name: "MKT 326 - Sales Management",
   },
   {
     id: 7,
@@ -44,11 +44,15 @@ const courses = [
   },
   {
     id: 8,
-    code: "MKT 112",
-    name: "MKT 112 - Principles of Selling",
+    code: "AKSU-MKT 112",
+    name: "AKSU-MKT 112 - Principles of Selling",
+  },
+  {
+    id: 9,
+    code: "AKSU-MKT 122",
+    name: "AKSU-MKT 122 - Basic Marketing",
   },
 ];
-
 
 type PaymentStatus =
   | "form"
@@ -60,6 +64,7 @@ export default function CBTPaymentPage() {
   const [form, setForm] = useState({
     full_name: "",
     email: "",
+    confirm_email: "",
     phone: "",
     course: "1",
   });
@@ -71,6 +76,7 @@ export default function CBTPaymentPage() {
   const [accessCode, setAccessCode] = useState("");
   const [verifiedCourse, setVerifiedCourse] =
     useState("");
+  const [studentEmail, setStudentEmail] = useState("");
 
   useEffect(() => {
     const searchParams = new URLSearchParams(
@@ -140,6 +146,8 @@ export default function CBTPaymentPage() {
       const savedEmail =
         sessionStorage.getItem("cbtPaymentEmail") ||
         "";
+
+      setStudentEmail(savedEmail);
 
       /*
        * Keep the backend's returned course information
@@ -246,9 +254,78 @@ export default function CBTPaymentPage() {
       return;
     }
 
-    if (!form.email.trim()) {
+    const email =
+      form.email.trim().toLowerCase();
+
+    const confirmEmail =
+      form.confirm_email.trim().toLowerCase();
+
+    if (!email) {
       setError(
         "Please enter your email address."
+      );
+      return;
+    }
+
+    /*
+     * Basic email format validation.
+     */
+    const emailPattern =
+      /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+    if (!emailPattern.test(email)) {
+      setError(
+        "Please enter a valid email address."
+      );
+      return;
+    }
+
+    /*
+     * Make sure the student enters the email twice.
+     */
+    if (!confirmEmail) {
+      setError(
+        "Please confirm your email address."
+      );
+      return;
+    }
+
+    /*
+     * The two email addresses must match exactly.
+     */
+    if (email !== confirmEmail) {
+      setError(
+        "The email addresses do not match. Please check and enter the same email address."
+      );
+      return;
+    }
+
+    /*
+     * Catch common email-domain typing mistakes.
+     * We do not automatically change the student's email.
+     */
+    const commonDomainTypos: Record<string, string> = {
+      "gmial.com": "gmail.com",
+      "gmai.com": "gmail.com",
+      "gmail.con": "gmail.com",
+      "gmail.co": "gmail.com",
+      "yaho.com": "yahoo.com",
+      "yahoo.con": "yahoo.com",
+      "outlok.com": "outlook.com",
+      "outlook.con": "outlook.com",
+      "hotmai.com": "hotmail.com",
+      "hotmail.con": "hotmail.com",
+    };
+
+    const emailDomain =
+      email.split("@")[1]?.toLowerCase();
+
+    if (
+      emailDomain &&
+      commonDomainTypos[emailDomain]
+    ) {
+      setError(
+        `Please check your email address. Did you mean ${email.split("@")[0]}@${commonDomainTypos[emailDomain]}?`
       );
       return;
     }
@@ -267,15 +344,16 @@ export default function CBTPaymentPage() {
 
     try {
       /*
-       * Save the selected course and email BEFORE
-       * redirecting to Paystack.
+       * Save the verified email and selected course
+       * BEFORE redirecting to Paystack.
        *
-       * These values are needed after Paystack
-       * redirects the student back to this page.
+       * The normalized email is used so that
+       * uppercase/lowercase differences do not
+       * cause an email mismatch later.
        */
       sessionStorage.setItem(
         "cbtPaymentEmail",
-        form.email.trim().toLowerCase()
+        email
       );
 
       sessionStorage.setItem(
@@ -292,7 +370,7 @@ export default function CBTPaymentPage() {
           },
           body: JSON.stringify({
             full_name: form.full_name.trim(),
-            email: form.email.trim(),
+            email: email,
             phone: form.phone.trim(),
             course: form.course,
           }),
@@ -441,7 +519,8 @@ export default function CBTPaymentPage() {
 
             <p className="mt-4 leading-7 text-[#2B2022]/60">
               Your CBT access has been activated.
-              Keep your access code safe.
+              Your access code has been sent to your email.
+              Keep it safe for easy access next time.
             </p>
 
             <div className="mt-8 rounded-2xl border border-[#6B2638]/10 bg-[#FAF7F2] p-6">
@@ -456,11 +535,18 @@ export default function CBTPaymentPage() {
 
             <div className="mt-6 rounded-2xl border border-[#C89B5D]/20 bg-[#C89B5D]/5 p-5 text-left">
               <p className="text-sm font-semibold text-[#2B2022]">
-                Important
+                Access Code Sent ✓
               </p>
 
               <p className="mt-2 text-sm leading-6 text-[#2B2022]/60">
-                Save this access code. You will use
+                Your CBT access code has also been sent to
+                <span className="font-semibold text-[#6B2638]">
+                  {" "}{studentEmail}
+                </span>.
+              </p>
+
+              <p className="mt-2 text-sm leading-6 text-[#2B2022]/60">
+                Save this access code. You will need
                 it whenever you want to access your
                 CBT practice.
               </p>
@@ -675,6 +761,7 @@ export default function CBTPaymentPage() {
                 />
               </div>
 
+              {/* EMAIL ADDRESS */}
               <div>
                 <label
                   htmlFor="email"
@@ -694,9 +781,54 @@ export default function CBTPaymentPage() {
                     )
                   }
                   placeholder="you@example.com"
+                  autoComplete="email"
                   className="mt-2 w-full rounded-xl border border-[#6B2638]/15 bg-[#FAF7F2] px-4 py-3.5 outline-none focus:border-[#6B2638] focus:ring-2 focus:ring-[#6B2638]/10"
                   required
                 />
+              </div>
+
+              {/* CONFIRM EMAIL */}
+              <div>
+                <label
+                  htmlFor="confirm_email"
+                  className="block text-sm font-semibold"
+                >
+                  Confirm Email Address
+                </label>
+
+                <input
+                  id="confirm_email"
+                  type="email"
+                  value={form.confirm_email}
+                  onChange={(e) =>
+                    updateField(
+                      "confirm_email",
+                      e.target.value
+                    )
+                  }
+                  placeholder="Enter your email again"
+                  autoComplete="email"
+                  className="mt-2 w-full rounded-xl border border-[#6B2638]/15 bg-[#FAF7F2] px-4 py-3.5 outline-none focus:border-[#6B2638] focus:ring-2 focus:ring-[#6B2638]/10"
+                  required
+                />
+
+                <p className="mt-2 text-xs leading-5 text-[#2B2022]/45">
+                  Enter the same email carefully.
+                  Your CBT access code will be sent
+                  to this email.
+                </p>
+              </div>
+
+              {/* IMPORTANT EMAIL WARNING */}
+              <div className="rounded-xl border border-[#C89B5D]/30 bg-[#C89B5D]/10 px-4 py-3 text-sm leading-6 text-[#2B2022]/70">
+                <span className="font-semibold text-[#6B2638]">
+                  Important:
+                </span>{" "}
+                Double-check your email address before
+                paying. Your CBT access code will be
+                sent to this email. An incorrect email
+                may prevent you from receiving your
+                access code.
               </div>
 
               <div>

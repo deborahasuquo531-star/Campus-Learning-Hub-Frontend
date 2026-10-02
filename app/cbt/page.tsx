@@ -34,32 +34,41 @@ import { useEffect, useState } from "react";
   },
   {
     id: 5,
-    code: "AMS 104",
+    code: "AMS 104 - Project Management",
     title: "Project Management",
     description:
       "Test your understanding of project planning, project management principles, costing, budgeting, implementation, monitoring, evaluation, and related topics.",
   },
   {
     id: 6,
-    code: "MKT 326",
+    code: "MKT 326 - Sales Management",
     title: "Sales Management",
     description:
       "Test your understanding of sales management, selling processes, sales planning, sales force management, customer relationships, and related topics.",
   },
   {
     id: 7,
-    code: "ECO 102",
+    code: "ECO 102 - Principles of Economics II",
     title: "Principles of Economics II",
     description:
       "Practice your understanding of economic principles, concepts, theories, and applications.",
   },
   {
     id: 8,
-    code: "MKT 112",
+    code: "AKSU-MKT 112 - Principles of Selling",
     title: "Principles of Selling",
     description:
       "Practice selling concepts, sales processes, sales force management, and theories of selling.",
   },
+  {
+    id: 9,
+    code: "AKSU-MKT 122 BASIC MARKETING ",
+    title: "Basic Marketing",
+    description:
+
+"practice marketing principles,marketing mix,consumer behaviour,market research,branding,and related topics.",
+},
+
 ];
 
 const API_URL = "https://learning-made-easy-backend.vercel.app";
