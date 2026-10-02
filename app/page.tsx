@@ -65,7 +65,7 @@ export default function Home() {
               href="/payment"
               className="rounded-xl bg-blue-500 px-7 py-3.5 text-center font-semibold hover:bg-blue-400"
             >
-              Get CBT Access — ₦500
+              Explore CBT Courses →
             </a>
 
             <a
@@ -218,7 +218,7 @@ export default function Home() {
               {
                 number: "01",
                 title: "Get access",
-                text: "Purchase CBT access and receive your unique access code.",
+                text: "Choose your CBT course and receive your unique access code after payment.",
               },
               {
                 number: "02",
@@ -258,12 +258,17 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-6 py-20">
           <div className="text-center">
             <p className="text-sm font-semibold uppercase tracking-wider text-blue-400">
-              Pricing
+              Plans
             </p>
 
             <h2 className="mt-3 text-3xl font-bold md:text-4xl">
               Choose what you need
             </h2>
+
+            <p className="mx-auto mt-4 max-w-2xl text-slate-400">
+              Explore the learning and examination tools available on
+              CAMPUS LEARNING HUB.
+            </p>
           </div>
 
           <div className="mx-auto mt-12 grid max-w-5xl gap-6 md:grid-cols-3">
@@ -295,19 +300,17 @@ export default function Home() {
 
             {/* CBT */}
             <div className="rounded-3xl border border-green-500/20 bg-slate-950 p-7">
-              <h3 className="text-xl font-bold">CBT</h3>
+              <h3 className="text-xl font-bold">CBT Practice</h3>
 
-              <p className="mt-5 text-4xl font-bold">₦500</p>
-
-              <p className="mt-4 min-h-12 text-slate-400">
-                Lifetime access to CBT practice.
+              <p className="mt-5 min-h-12 text-slate-400">
+                Lifetime access to CBT practice across available courses.
               </p>
 
               <a
                 href="/payment"
                 className="mt-7 block rounded-xl bg-green-500 px-5 py-3 text-center font-semibold text-slate-950 hover:bg-green-400"
               >
-                Get CBT Access
+                Explore CBT Courses →
               </a>
             </div>
           </div>
@@ -328,7 +331,7 @@ export default function Home() {
           href="/payment"
           className="mt-8 inline-block rounded-xl bg-blue-500 px-8 py-4 font-semibold hover:bg-blue-400"
         >
-          Get CBT Access — ₦500
+          Explore CBT Courses →
         </a>
       </section>
 
