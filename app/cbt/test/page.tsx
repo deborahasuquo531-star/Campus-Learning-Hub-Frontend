@@ -23,11 +23,6 @@ type Question = {
   explanation?: string;
 };
 
-type Answer = {
-  question_id: number;
-  answer: string;
-};
-
 type ShuffledOption = {
   displayLetter: string;
   originalLetter: string;
@@ -49,9 +44,7 @@ const DISPLAY_LETTERS = [
 /*
  * Fisher-Yates shuffle.
  */
-function shuffleArray<T>(
-  array: T[]
-): T[] {
+function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
 
   for (
@@ -79,7 +72,7 @@ function shuffleArray<T>(
  * Create balanced correct-answer positions.
  *
  * 4-option questions use A/B/C/D.
- * 3-option questions use A/B/C only.
+ * 3-option questions use A/B/C.
  */
 function createBalancedCorrectPositions(
   questions: Question[]
@@ -108,16 +101,15 @@ function createBalancedCorrectPositions(
  * the original database answer letter.
  *
  * Important:
- * The displayed letter is only for the student.
- * The original database letter is what gets sent
- * to the backend for marking.
+ *
+ * displayLetter = what the student sees.
+ *
+ * originalLetter = the original database option
+ * letter used by the backend for marking.
  */
 function createShuffledOptions(
   questions: Question[]
-): Record<
-  number,
-  ShuffledOption[]
-> {
+): Record<number, ShuffledOption[]> {
   const result: Record<
     number,
     ShuffledOption[]
@@ -129,15 +121,9 @@ function createShuffledOptions(
     );
 
   questions.forEach(
-    (
-      question,
-      questionIndex
-    ) => {
+    (question, questionIndex) => {
       /*
        * Build only the options that actually exist.
-       *
-       * If option D is empty, only A/B/C
-       * will be created.
        */
       const originalOptions: ShuffledOption[] = [
         {
@@ -166,10 +152,19 @@ function createShuffledOptions(
           : []),
       ];
 
+      /*
+       * Normalize correct answer.
+       *
+       * Supports:
+       * A
+       * B.
+       * C)
+       * D:
+       * etc.
+       */
       const rawCorrectAnswer =
         String(
-          question.correct_answer ||
-            ""
+          question.correct_answer || ""
         ).trim();
 
       const normalizedCorrectAnswer =
@@ -182,7 +177,8 @@ function createShuffledOptions(
 
       /*
        * Support databases where correct_answer
-       * contains the actual answer text.
+       * contains the actual answer text instead
+       * of A/B/C/D.
        */
       if (
         !DISPLAY_LETTERS.includes(
@@ -230,15 +226,10 @@ function createShuffledOptions(
           shuffleArray(
             originalOptions
           ).map(
-            (
-              option,
-              index
-            ) => ({
+            (option, index) => ({
               ...option,
               displayLetter:
-                fallbackLetters[
-                  index
-                ],
+                fallbackLetters[index],
             })
           );
 
@@ -249,8 +240,8 @@ function createShuffledOptions(
       }
 
       /*
-       * Remove the correct answer from the
-       * distractor pool.
+       * Remove the correct answer from
+       * the distractor pool.
        */
       const distractors =
         originalOptions.filter(
@@ -269,13 +260,6 @@ function createShuffledOptions(
 
       let distractorIndex = 0;
 
-      /*
-       * 3-option questions:
-       * A, B, C only.
-       *
-       * 4-option questions:
-       * A, B, C, D.
-       */
       const displayLetters =
         originalOptions.length === 3
           ? ["A", "B", "C"]
@@ -324,9 +308,7 @@ function CBTTestContent() {
     useSearchParams();
 
   const courseId =
-    searchParams.get(
-      "courseId"
-    );
+    searchParams.get("courseId");
 
   const [accessCode, setAccessCode] =
     useState("");
@@ -349,19 +331,32 @@ function CBTTestContent() {
     setQuestions,
   ] = useState<Question[]>([]);
 
+  /*
+   * IMPORTANT:
+   *
+   * Answers are now stored by question ID.
+   *
+   * Example:
+   *
+   * {
+   *   2451: "B",
+   *   2452: "D",
+   *   2453: ""
+   * }
+   *
+   * This prevents an answer from one question
+   * being accidentally associated with another.
+   */
   const [
     answers,
     setAnswers,
-  ] = useState<Answer[]>([]);
+  ] = useState<Record<number, string>>({});
 
   const [
     shuffledOptions,
     setShuffledOptions,
   ] = useState<
-    Record<
-      number,
-      ShuffledOption[]
-    >
+    Record<number, ShuffledOption[]>
   >({});
 
   const [
@@ -452,9 +447,7 @@ function CBTTestContent() {
      */
     if (
       storedCourseId &&
-      String(
-        storedCourseId
-      ) !==
+      String(storedCourseId) !==
         String(courseId)
     ) {
       router.replace("/cbt");
@@ -490,6 +483,8 @@ function CBTTestContent() {
     ) {
       return;
     }
+
+    let cancelled = false;
 
     const verifyAccess =
       async () => {
@@ -535,10 +530,16 @@ function CBTTestContent() {
             );
           }
 
-          setAccessVerified(
-            true
-          );
+          if (!cancelled) {
+            setAccessVerified(
+              true
+            );
+          }
         } catch (err) {
+          if (cancelled) {
+            return;
+          }
+
           console.error(
             "CBT access verification failed:",
             err
@@ -571,14 +572,20 @@ function CBTTestContent() {
           );
 
           setTimeout(() => {
-            router.replace(
-              "/cbt"
-            );
+            if (!cancelled) {
+              router.replace(
+                "/cbt"
+              );
+            }
           }, 2000);
         }
       };
 
     verifyAccess();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     accessCode,
     studentEmail,
@@ -588,6 +595,10 @@ function CBTTestContent() {
 
   /*
    * LOAD A FRESH RANDOMIZED QUESTION SET
+   *
+   * This effect is protected with AbortController
+   * so an older request cannot overwrite a newer
+   * question set.
    */
   useEffect(() => {
     if (
@@ -598,6 +609,11 @@ function CBTTestContent() {
     ) {
       return;
     }
+
+    const controller =
+      new AbortController();
+
+    let cancelled = false;
 
     const loadQuestions =
       async () => {
@@ -666,6 +682,9 @@ function CBTTestContent() {
                 },
 
                 cache: "no-store",
+
+                signal:
+                  controller.signal,
               }
             );
 
@@ -695,6 +714,41 @@ function CBTTestContent() {
             );
           }
 
+          /*
+           * Prevent stale request from changing
+           * the current test.
+           */
+          if (cancelled) {
+            return;
+          }
+
+          /*
+           * Diagnostic check:
+           *
+           * If duplicate question IDs ever arrive,
+           * log them so the problem can be traced.
+           */
+          const questionIds =
+            loadedQuestions.map(
+              (question) =>
+                question.id
+            );
+
+          const uniqueQuestionIds =
+            new Set(
+              questionIds
+            );
+
+          if (
+            uniqueQuestionIds.size !==
+            questionIds.length
+          ) {
+            console.warn(
+              "CBT WARNING: Duplicate question IDs detected:",
+              questionIds
+            );
+          }
+
           setQuestions(
             loadedQuestions
           );
@@ -713,18 +767,22 @@ function CBTTestContent() {
           );
 
           /*
-           * Start with unanswered questions.
+           * Start with NO selected answers.
+           *
+           * Every question gets its own entry
+           * keyed by question ID.
            */
           const initialAnswers:
-            Answer[] =
-            loadedQuestions.map(
-              (question) => ({
-                question_id:
-                  question.id,
+            Record<number, string> =
+            {};
 
-                answer: "",
-              })
-            );
+          loadedQuestions.forEach(
+            (question) => {
+              initialAnswers[
+                question.id
+              ] = "";
+            }
+          );
 
           setAnswers(
             initialAnswers
@@ -734,6 +792,13 @@ function CBTTestContent() {
             0
           );
         } catch (err) {
+          if (
+            controller.signal.aborted ||
+            cancelled
+          ) {
+            return;
+          }
+
           console.error(
             "Unable to load CBT questions:",
             err
@@ -745,13 +810,23 @@ function CBTTestContent() {
               : "Unable to load CBT questions."
           );
         } finally {
-          setLoadingQuestions(
-            false
-          );
+          if (
+            !controller.signal.aborted &&
+            !cancelled
+          ) {
+            setLoadingQuestions(
+              false
+            );
+          }
         }
       };
 
     loadQuestions();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [
     accessVerified,
     selectedCourseId,
@@ -842,6 +917,22 @@ function CBTTestContent() {
 
   /*
    * SELECT ANSWER
+   *
+   * We store the ORIGINAL database letter,
+   * not the displayed letter.
+   *
+   * Example:
+   *
+   * Displayed:
+   * A = "Apple"
+   * B = "Orange"
+   * C = "Mango"
+   * D = "Banana"
+   *
+   * If "Mango" came from database option B,
+   * we store "B".
+   *
+   * This preserves your backend marking.
    */
   const handleAnswer = (
     displayLetter: string
@@ -872,22 +963,18 @@ function CBTTestContent() {
       return;
     }
 
-    const questionId =
-      question.id;
-
+    /*
+     * Only update THIS question.
+     *
+     * No other question's answer can be
+     * changed by this operation.
+     */
     setAnswers(
-      (previous) =>
-        previous.map(
-          (item) =>
-            item.question_id ===
-            questionId
-              ? {
-                  ...item,
-                  answer:
-                    selectedOption.originalLetter,
-                }
-              : item
-        )
+      (previous) => ({
+        ...previous,
+        [question.id]:
+          selectedOption.originalLetter,
+      })
     );
   };
 
@@ -896,51 +983,42 @@ function CBTTestContent() {
    */
   const getCurrentAnswer =
     () => {
-      if (
-        !questions[
-          currentQuestion
-        ]
-      ) {
-        return "";
-      }
-
-      const questionId =
-        questions[
-          currentQuestion
-        ].id;
-
-      const answer =
-        answers.find(
-          (item) =>
-            item.question_id ===
-            questionId
-        );
-
-      return (
-        answer?.answer || ""
-      );
-    };
-
-  /*
-   * GET DISPLAYED ANSWER
-   */
-  const getCurrentDisplayedAnswer =
-    () => {
-      if (
-        !questions[
-          currentQuestion
-        ]
-      ) {
-        return "";
-      }
-
       const question =
         questions[
           currentQuestion
         ];
 
+      if (!question) {
+        return "";
+      }
+
+      return (
+        answers[question.id] ||
+        ""
+      );
+    };
+
+  /*
+   * GET DISPLAYED ANSWER
+   *
+   * Converts the stored original database
+   * letter back into the displayed A/B/C/D
+   * position.
+   */
+  const getCurrentDisplayedAnswer =
+    () => {
+      const question =
+        questions[
+          currentQuestion
+        ];
+
+      if (!question) {
+        return "";
+      }
+
       const originalAnswer =
-        getCurrentAnswer();
+        answers[question.id] ||
+        "";
 
       if (!originalAnswer) {
         return "";
@@ -990,6 +1068,28 @@ function CBTTestContent() {
       setError("");
 
       try {
+        /*
+         * Convert our object-based answer state
+         * back into the exact array format expected
+         * by your backend.
+         *
+         * Every question is included.
+         */
+        const submissionAnswers =
+          questions.map(
+            (question) => ({
+              question_id:
+                Number(
+                  question.id
+                ),
+
+              answer:
+                answers[
+                  question.id
+                ] || "",
+            })
+          );
+
         const response =
           await fetch(
             `${BACKEND_URL}/api/cbt/submit`,
@@ -1014,18 +1114,7 @@ function CBTTestContent() {
                   ),
 
                 answers:
-                  answers.map(
-                    (item) => ({
-                      question_id:
-                        Number(
-                          item.question_id
-                        ),
-
-                      answer:
-                        item.answer ||
-                        "",
-                    })
-                  ),
+                  submissionAnswers,
               }),
             }
           );
@@ -1089,11 +1178,29 @@ function CBTTestContent() {
 
         /*
          * Save student's answers.
+         *
+         * Convert object back to the same
+         * structure your result page expects.
          */
+        const savedAnswers =
+          questions.map(
+            (question) => ({
+              question_id:
+                Number(
+                  question.id
+                ),
+
+              answer:
+                answers[
+                  question.id
+                ] || "",
+            })
+          );
+
         sessionStorage.setItem(
           "cbtAnswers",
           JSON.stringify(
-            answers
+            savedAnswers
           )
         );
 
@@ -1259,10 +1366,16 @@ function CBTTestContent() {
   const currentDisplayedAnswer =
     getCurrentDisplayedAnswer();
 
+  /*
+   * Count only questions that actually
+   * have an answer.
+   */
   const answeredCount =
-    answers.filter(
+    Object.values(
+      answers
+    ).filter(
       (answer) =>
-        answer.answer !== ""
+        answer !== ""
     ).length;
 
   const progress =
@@ -1275,8 +1388,7 @@ function CBTTestContent() {
     questions.length - 1;
 
   const timerWarning =
-    timeLeft <=
-    5 * 60;
+    timeLeft <= 5 * 60;
 
   /*
    * CBT INTERFACE
@@ -1371,13 +1483,17 @@ function CBTTestContent() {
           <div className="space-y-3">
             {options.map(
               (option) => {
+                /*
+                 * The selected state is derived from
+                 * the CURRENT QUESTION ONLY.
+                 */
                 const selected =
                   currentDisplayedAnswer ===
                   option.displayLetter;
 
                 return (
                   <button
-                    key={`${question.id}-${option.displayLetter}`}
+                    key={`${question.id}-${option.originalLetter}`}
                     type="button"
                     onClick={() =>
                       handleAnswer(
