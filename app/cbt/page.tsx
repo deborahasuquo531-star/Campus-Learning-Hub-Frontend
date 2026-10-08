@@ -68,7 +68,13 @@ import { useEffect, useState } from "react";
 
 "practice marketing principles,marketing mix,consumer behaviour,market research,branding,and related topics.",
 },
-
+{
+  id: 10,
+  code: "FAC 302 — Theories in the Humanities",
+  title: "Theories in the Humanities",
+  description:
+  "Test your understanding of various theories in the humanities, including literature, philosophy, art, and cultural studies,and their applications in analysing",
+  },
 ];
 
 const API_URL = "https://learning-made-easy-backend.vercel.app";

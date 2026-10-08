@@ -52,6 +52,11 @@ const courses = [
     code: "MKT122",
     name: "MKT 122 — Basic Marketing",
   },
+  {
+  id: 10,
+  code: "FAC302",
+  name: "FAC 302 — Theories in the Humanities",
+},
 ];
 
 type PaymentStatus =
