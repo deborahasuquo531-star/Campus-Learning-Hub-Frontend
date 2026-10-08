@@ -122,12 +122,28 @@ export default function CBTResultPage() {
         : 0;
 
   const displayCourseName =
-    courseName ||
-    (courseId === "1"
-      ? "GST 112 – The Nigerian Peoples and Culture"
-      : courseId === "2"
-        ? "GST 202"
-        : "CBT Examination");
+  courseName ||
+  (courseId === "1"
+    ? "GST 112 – The Nigerian People and Culture"
+    : courseId === "2"
+      ? "GST 202 – Philosophy and Logic for Human Existence"
+      : courseId === "3"
+        ? "GST 312 – Venture Creation"
+        : courseId === "4"
+          ? "GST 312 – Peace and Conflict Resolution"
+          : courseId === "5"
+            ? "AMS 104 – Project Management"
+            : courseId === "6"
+              ? "MKT 326 – Sales Management"
+              : courseId === "7"
+                ? "ECO 102 – Principles of Economics II"
+                : courseId === "8"
+                  ? "AKSU-MKT 112 – Principles of Selling"
+                  : courseId === "9"
+                    ? "AKSU-MKT 122 – Basic Marketing"
+                    : courseId === "10"
+                      ? "FAC 302 – Theories in the Humanities"
+                      : "CBT Examination");
 
   const getAnswerDisplay = (
     answerText?: string,
