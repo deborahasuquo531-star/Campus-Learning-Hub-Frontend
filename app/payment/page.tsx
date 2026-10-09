@@ -56,7 +56,12 @@ const courses = [
   id: 10,
   code: "FAC302",
   name: "FAC 302 — Theories in the Humanities",
-},
+  },
+  {
+    id: 11,
+    code: "SSC 202",
+    name: "SSC 202 — Introduction to Computer & Its Applications",
+  },
 ];
 
 type PaymentStatus =
