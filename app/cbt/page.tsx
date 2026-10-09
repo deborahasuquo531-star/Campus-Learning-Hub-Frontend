@@ -75,6 +75,13 @@ import { useEffect, useState } from "react";
   description:
   "Test your understanding of various theories in the humanities, including literature, philosophy, art, and cultural studies,and their applications in analysing",
   },
+  {
+    id: 11,
+    code: "SSC 202 - Introduction to Computer & Its Applications",
+    title: "Introduction to Computer & Its Applications",
+    description:
+    "Test your understanding of computer fundamentals, software applications,operating systems, networking, and related topics.",
+   }
 ];
 
 const API_URL = "https://learning-made-easy-backend.vercel.app";

@@ -408,7 +408,25 @@ function CBTTestContent() {
 
       case 5:
         return "AMS 104 — Project Management";
+        
+        case 6:
+      return "MKT 326 — Sales Management";
+   
+      case 7:
+      return "ECO 102 — Principles of Economics II";
+    
+      case 8:
+      return "AKSU-MKT 112 — Principles of Selling";
+    
+      case 9:
+      return "AKSU-MKT 122 — Basic Marketing";
 
+       case 10:
+        return "FAC 302 — Theories in the Humanities";
+    
+      case 11:
+      return "SSC 202 — Introduction to Computer & Its Applications";
+      
       default:
         return "CBT Examination";
     }
