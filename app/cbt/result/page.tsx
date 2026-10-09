@@ -143,6 +143,8 @@ export default function CBTResultPage() {
                     ? "AKSU-MKT 122 – Basic Marketing"
                     : courseId === "10"
                       ? "FAC 302 – Theories in the Humanities"
+                    : courseId === "11"
+                      ? "SSC 202 – Introduction to Computer & Its Applications"
                       : "CBT Examination");
 
   const getAnswerDisplay = (
